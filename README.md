@@ -402,3 +402,181 @@ WHERE id=OBJECT_ID('vwEmployee');
 ```
 **توضیحات:**
 - نمایش کد SQL تعریف کننده یک ویو
+
+# آموزش توابع (Functions) در SQL Server بر اساس جداول شما
+
+در SQL Server، توابع (Functions) امکان encapsulate کردن منطق محاسباتی و بازگرداندن نتایج را فراهم می‌کنند. بیایید بر اساس جداولی که ایجاد کردید، چند نوع تابع مختلف را بررسی کنیم.
+
+## 1. توابع Scalar (مقدار تک)
+
+این توابع یک مقدار واحد برمی‌گردانند.
+
+### مثال 1: محاسبه مالیات بر محصول
+
+```sql
+CREATE FUNCTION CalculateTax(@price DECIMAL(10,2))
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+    DECLARE @tax DECIMAL(10,2)
+    SET @tax = @price * 0.09 -- فرض کنید مالیات 9% باشد
+    RETURN @tax
+END
+```
+
+**استفاده از تابع:**
+
+```sql
+SELECT 
+    Name, 
+    Price, 
+    dbo.CalculateTax(Price) AS Tax,
+    Price + dbo.CalculateTax(Price) AS TotalPrice
+FROM Product
+```
+
+### مثال 2: تعداد کارمندان یک فروشگاه
+
+```sql
+CREATE FUNCTION GetEmployeeCount(@storeID INT)
+RETURNS INT
+AS
+BEGIN
+    DECLARE @count INT
+    SELECT @count = COUNT(*) FROM Employee WHERE S_ID = @storeID
+    RETURN @count
+END
+```
+
+**استفاده از تابع:**
+
+```sql
+SELECT 
+    Name, 
+    dbo.GetEmployeeCount(ID) AS EmployeeCount
+FROM Store
+```
+
+## 2. توابع جدولی (Table-Valued)
+
+این توابع یک جدول برمی‌گردانند.
+
+### مثال 3: لیست محصولات یک فروشگاه خاص
+
+```sql
+CREATE FUNCTION GetStoreProducts(@storeID INT)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT 
+        p.Name AS ProductName, 
+        p.Price, 
+        sp.amount AS Inventory
+    FROM StoreProduct sp
+    JOIN Product p ON sp.p_ID = p.ID
+    WHERE sp.S_ID = @storeID
+)
+```
+
+**استفاده از تابع:**
+
+```sql
+SELECT * FROM dbo.GetStoreProducts(1) -- لیست محصولات فروشگاه با ID=1
+```
+
+### مثال 4: محصولات با موجودی کم (کمتر از مقدار مشخص)
+
+```sql
+CREATE FUNCTION GetLowStockProducts(@threshold INT)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT 
+        s.Name AS StoreName,
+        p.Name AS ProductName,
+        sp.amount AS CurrentStock
+    FROM StoreProduct sp
+    JOIN Store s ON sp.S_ID = s.ID
+    JOIN Product p ON sp.p_ID = p.ID
+    WHERE sp.amount < @threshold
+)
+```
+
+**استفاده از تابع:**
+
+```sql
+SELECT * FROM dbo.GetLowStockProducts(10) -- محصولاتی که موجودی آنها کمتر از 10 است
+```
+
+## 3. توابع چندبیانی (Multi-Statement Table-Valued)
+
+این توابع پیچیده‌تر هستند و می‌توانند چندین عبارت SQL داشته باشند.
+
+### مثال 5: خلاصه اطلاعات فروشگاه
+
+```sql
+CREATE FUNCTION GetStoreSummary(@chainID INT)
+RETURNS @result TABLE (
+    StoreName NVARCHAR(100),
+    City NVARCHAR(100),
+    EmployeeCount INT,
+    ProductCount INT,
+    TotalInventoryValue DECIMAL(18,2)
+)
+AS
+BEGIN
+    INSERT INTO @result
+    SELECT 
+        s.Name AS StoreName,
+        s.City,
+        (SELECT COUNT(*) FROM Employee e WHERE e.S_ID = s.ID) AS EmployeeCount,
+        (SELECT COUNT(*) FROM StoreProduct sp WHERE sp.S_ID = s.ID) AS ProductCount,
+        (SELECT SUM(p.Price * sp.amount) 
+         FROM StoreProduct sp 
+         JOIN Product p ON sp.p_ID = p.ID 
+         WHERE sp.S_ID = s.ID) AS TotalInventoryValue
+    FROM Store s
+    WHERE s.C_ID = @chainID
+    
+    RETURN
+END
+```
+
+**استفاده از تابع:**
+
+```sql
+SELECT * FROM dbo.GetStoreSummary(1) -- خلاصه اطلاعات برای فروشگاه‌های زنجیره‌ای با ID=1
+```
+
+## 4. توابع سیستمی (System Functions)
+
+SQL Server توابع سیستمی زیادی دارد که می‌توانید در کوئری‌های خود استفاده کنید:
+
+```sql
+-- محاسبه میانگین حقوق کارمندان یک فروشگاه خاص
+SELECT AVG(Salary) AS AvgSalary FROM Employee WHERE S_ID = 1
+
+-- تبدیل نام محصول به حروف بزرگ
+SELECT UPPER(Name) FROM Product
+
+-- محاسبه طول نام فروشگاه
+SELECT Name, LEN(Name) AS NameLength FROM Store
+```
+
+## نکات مهم:
+
+1. همیشه قبل از ایجاد تابع جدید، بررسی کنید که آیا از قبل وجود دارد یا نه:
+
+```sql
+IF OBJECT_ID('dbo.CalculateTax', 'FN') IS NOT NULL
+    DROP FUNCTION dbo.CalculateTax
+GO
+```
+
+2. از schema (معمولاً dbo) قبل از نام تابع استفاده کنید.
+
+3. توابع می‌توانند در JOINها، WHERE clauses و تقریباً هر جای دیگر استفاده شوند.
+
+آیا می‌خواهید روی یکی از این مثال‌ها بیشتر تمرکز کنیم یا توابع پیشرفته‌تری را بررسی کنیم؟
