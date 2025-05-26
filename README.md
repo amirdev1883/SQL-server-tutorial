@@ -1,1 +1,404 @@
 # SQL-server-tutorial
+
+# جزوه آموزشی SQL - تحلیل کامل کدهای ارائه شده
+
+## بخش 1: ایجاد جداول (CREATE TABLE)
+
+### 1.1 جدول Product
+```sql
+CREATE TABLE Product (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    Name NVARCHAR(100) NOT NULL,
+    Price DECIMAL(10, 2) NOT NULL
+);
+```
+**توضیحات:**
+- این جدول برای ذخیره اطلاعات محصولات ایجاد شده است
+- `ID` به عنوان کلید اصلی با مقدار خودکار (IDENTITY) تعریف شده که از 1 شروع می‌شود و با قدم 1 افزایش می‌یابد
+- `Name` از نوع NVARCHAR با حداکثر 100 کاراکتر و غیرقابل قبول مقدار NULL
+- `Price` از نوع DECIMAL با 10 رقم کلی و 2 رقم اعشار
+
+### 1.2 جدول Chain_Store
+```sql
+CREATE TABLE Chain_Store(
+    ID INT PRIMARY KEY IDENTITY(1, 1),
+    Name NVARCHAR(100) NOT NULL
+);
+```
+**توضیحات:**
+- جدول فروشگاه‌های زنجیره‌ای
+- ساختار مشابه جدول Product دارد با این تفاوت که فقط فیلد Name را دارد
+
+### 1.3 جدول Store
+```sql
+CREATE TABLE Store (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    Name NVARCHAR(100) NOT NULL,
+    Zone TINYINT NOT NULL,
+    City NVARCHAR (100) NOT NULL,
+    Address NVARCHAR(100) NOT NULL,
+    C_ID INT FOREIGN KEY REFERENCES Chain_Store (ID)
+);
+```
+**توضیحات:**
+- جدول فروشگاه‌های انفرادی
+- شامل فیلدهای: نام، منطقه (Zone)، شهر، آدرس
+- `C_ID` یک کلید خارجی است که به جدول Chain_Store ارتباط برقرار می‌کند
+
+### 1.4 جدول Employee
+```sql
+CREATE TABLE Employee(
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    Name NVARCHAR(100) NOT NULL,
+    Salary DECIMAL(10,2) NOT NULL,
+    S_ID INT FOREIGN KEY REFERENCES Store(ID)
+);
+```
+**توضیحات:**
+- جدول کارمندان
+- شامل نام، حقوق و یک کلید خارجی به جدول Store
+- هر کارمند به یک فروشگاه مرتبط است
+
+### 1.5 جدول StoreProduct
+```sql
+CREATE TABLE StoreProduct(
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    S_ID INT FOREIGN KEY REFERENCES Store(ID),
+    p_ID INT FOREIGN KEY REFERENCES Product(ID),
+    amount INT NOT NULL,
+);
+```
+**توضیحات:**
+- جدول ارتباطی بین فروشگاه و محصول (رابطه چند به چند)
+- شامل کلیدهای خارجی به Store و Product
+- فیلد amount تعداد موجودی محصول در هر فروشگاه را نشان می‌دهد
+
+## بخش 2: درج داده‌ها (INSERT)
+
+### 2.1 درج داده در Chain_Store
+```sql
+INSERT INTO Chain_Store (Name)
+VALUES 
+    ('فروشگاه‌های شهروند'),
+    ('هایپراستار'),
+    ('رفاه'),
+    ('جانبو');
+```
+**توضیحات:**
+- درج 4 رکورد برای فروشگاه‌های زنجیره‌ای
+- مقادیر به زبان فارسی وارد شده‌اند
+
+### 2.2 درج داده در Product
+```sql
+INSERT INTO Product (Name, Price)
+VALUES
+    ('لبنیات پرچرب', 45.50),
+    ('نوشابه خانواده', 12.75),
+    ('روغن نباتی', 32.00),
+    ('برنج ایرانی', 120.00),
+    ('ماکارونی', 15.25),
+    ('شیر کم چرب', 28.50),
+    ('تخم مرغ', 35.00),
+    ('مرغ بسته‌بندی', 85.00);
+```
+**توضیحات:**
+- درج 8 محصول مختلف با قیمت‌های متفاوت
+
+### 2.3 درج داده در Store
+```sql
+INSERT INTO Store (Name, Zone, City, Address, C_ID)
+VALUES
+    ('شهروند صادقیه', 1, 'تهران', 'میدان صادقیه، بلوار آیت‌الله کاشانی', 1),
+    ('شهروند ونک', 2, 'تهران', 'میدان ونک، خیابان ملاصدرا', 1),
+    ('هایپراستار اصفهان', 3, 'اصفهان', 'چهارباغ بالا، مجتمع پارک', 2),
+    ('رفاه شیراز', 4, 'شیراز', 'بلوار زند، جنب بازار وکیل', 3),
+    ('جانبو مشهد', 5, 'مشهد', 'بلوار وکیل‌آباد، مجتمع الماس شرق', 4),
+    ('هایپراستار کرج', 1, 'کرج', 'میدان شهدا، بلوار موذن', 2);
+```
+**توضیحات:**
+- درج 6 فروشگاه در شهرهای مختلف
+- هر فروشگاه به یک فروشگاه زنجیره‌ای مرتبط است
+
+### 2.4 درج داده در Employee
+```sql
+INSERT INTO Employee (Name, Salary, S_ID)
+VALUES
+    ('محمد حسینی', 8500000.00, 1),
+    ('فاطمه محمدی', 7800000.00, 1),
+    ('رضا کریمی', 9200000.00, 2),
+    ('زهرا احمدی', 8100000.00, 3),
+    ('علی رضایی', 9500000.00, 4),
+    ('نازنین نوروزی', 8800000.00, 5),
+    ('امیر عباسی', 9000000.00, 6),
+    ('سمیه غفاری', 8300000.00, 2);
+```
+**توضیحات:**
+- درج 8 کارمند با حقوق‌های مختلف
+- هر کارمند به یک فروشگاه مرتبط است
+
+### 2.5 درج داده در StoreProduct
+```sql
+INSERT INTO StoreProduct (S_ID, p_ID, amount)
+VALUES
+    -- شهروند صادقیه
+    (1, 1, 150), (1, 2, 200), (1, 3, 100), (1, 4, 80),
+    -- شهروند ونک
+    (2, 1, 120), (2, 5, 180), (2, 6, 90), (2, 7, 110),
+    -- هایپراستار اصفهان
+    (3, 2, 160), (3, 3, 70), (3, 4, 60), (3, 8, 50),
+    -- رفاه شیراز
+    (4, 1, 90), (4, 6, 120), (4, 7, 80), (4, 5, 150),
+    -- جانبو مشهد
+    (5, 3, 110), (5, 4, 70), (5, 8, 60), (5, 2, 180),
+    -- هایپراستار کرج
+    (6, 1, 130), (6, 2, 170), (6, 5, 140), (6, 7, 100);
+```
+**توضیحات:**
+- درج موجودی محصولات در هر فروشگاه
+- هر فروشگاه چندین محصول با مقادیر مختلف دارد
+
+## بخش 3: کوئری‌های پایه (SELECT)
+
+### 3.1 نمایش تمام داده‌های جدول
+```sql
+SELECT * FROM Chain_Store;
+SELECT * FROM Store;
+SELECT * FROM Employee;
+SELECT * FROM Product;
+```
+**توضیحات:**
+- نمایش تمام رکوردها و ستون‌های هر جدول
+
+### 3.2 فیلتر کردن با WHERE
+```sql
+SELECT Name, Salary FROM Employee
+WHERE Salary > 8500000;
+```
+**توضیحات:**
+- نمایش نام و حقوق کارمندانی که حقوقشان بیشتر از 8,500,000 است
+
+```sql
+SELECT Name, Salary FROM Employee
+WHERE Salary BETWEEN 8500000 AND 9000000;
+```
+**توضیحات:**
+- نمایش کارمندانی با حقوق بین 8,500,000 تا 9,000,000
+
+```sql
+SELECT Name, Salary FROM Employee
+WHERE Name LIKE '%ر%';
+```
+**توضیحات:**
+- نمایش کارمندانی که در نامشان حرف "ر" وجود دارد
+
+### 3.3 گروه‌بندی با GROUP BY
+```sql
+SELECT S_ID, COUNT(*) AS EmployeeCount
+FROM Employee
+GROUP BY S_ID;
+```
+**توضیحات:**
+- شمارش تعداد کارمندان هر فروشگاه
+
+```sql
+SELECT S_ID, Name, COUNT(*) AS EmployeeCount
+FROM Employee
+GROUP BY S_ID, Name;
+```
+**توضیحات:**
+- گروه‌بندی بر اساس S_ID و Name
+
+## بخش 4: کوئری‌های پیچیده (JOIN)
+
+### 4.1 JOIN ساده
+```sql
+SELECT s.Name, COUNT(*) AS EmployeeCount
+FROM Store s
+INNER JOIN Employee e ON s.ID = e.S_ID
+GROUP BY s.Name;
+```
+**توضیحات:**
+- نمایش نام هر فروشگاه و تعداد کارمندان آن
+
+### 4.2 JOIN با شرایط
+```sql
+SELECT COUNT(*) AS count, s.Name AS storeName
+FROM Employee AS e 
+INNER JOIN Store AS s ON e.S_ID = s.ID
+WHERE Salary > 10000
+GROUP BY s.Name
+HAVING SUM(Salary) > 2000;
+```
+**توضیحات:**
+- شمارش کارمندان هر فروشگاه که حقوقشان بیشتر از 10,000 است
+- فقط فروشگاه‌هایی که مجموع حقوق کارمندانشان بیش از 2,000 است نمایش داده می‌شوند
+
+### 4.3 JOIN چندگانه
+```sql
+SELECT Chain_Store.Name AS chain, Store.Name AS store, Employee.Name AS emp
+FROM Chain_Store 
+INNER JOIN Employee ON Chain_Store.ID = Employee.ID 
+INNER JOIN Store ON Chain_Store.ID = Store.C_ID AND Employee.S_ID = Store.ID
+ORDER BY chain, store DESC;
+```
+**توضیحات:**
+- ارتباط سه جدول Chain_Store، Store و Employee
+- نمایش نام زنجیره، نام فروشگاه و نام کارمند
+- مرتب‌سازی بر اساس نام زنجیره و نام فروشگاه (نزولی)
+
+## بخش 5: ویوها (VIEW)
+
+### 5.1 ایجاد ویو ساده
+```sql
+CREATE VIEW vwEmployee AS 
+SELECT Chain_Store.Name AS chain, Store.Name AS store, Employee.Name AS emp
+FROM Chain_Store 
+INNER JOIN Employee ON Chain_Store.ID = Employee.ID 
+INNER JOIN Store ON Chain_Store.ID = Store.C_ID AND Employee.S_ID = Store.ID;
+```
+**توضیحات:**
+- ایجاد یک ویو برای نمایش اطلاعات کارمندان همراه با فروشگاه و زنجیره مربوطه
+
+### 5.2 استفاده از ویو
+```sql
+SELECT * FROM vwEmployee;
+SELECT DISTINCT emp FROM vwEmployee;
+```
+**توضیحات:**
+- نمایش تمام داده‌های ویو
+- نمایش نام منحصر به فرد کارمندان
+
+### 5.3 ویو با محاسبات
+```sql
+CREATE VIEW vw_storeEmployeeCount(storeName, employeeCount) AS
+SELECT s.Name, e.c 
+FROM (SELECT S_ID, COUNT(*) AS c FROM Employee GROUP BY S_ID) AS e 
+INNER JOIN Store AS s ON e.S_ID = s.ID;
+```
+**توضیحات:**
+- ویوی نمایش تعداد کارمندان هر فروشگاه
+
+### 5.4 تغییر ویو
+```sql
+ALTER VIEW vw_storeEmployeeCount AS 
+SELECT s.Name, e.c 
+FROM (SELECT S_ID, COUNT(*) AS c FROM Employee GROUP BY S_ID HAVING COUNT(*)>1) AS e 
+INNER JOIN Store AS s ON e.S_ID = s.ID;
+```
+**توضیحات:**
+- تغییر ویو برای نمایش فقط فروشگاه‌هایی که بیش از یک کارمند دارند
+
+### 5.5 ویو با رمزنگاری
+```sql
+CREATE VIEW vwStoreName WITH ENCRYPTION AS 
+SELECT DISTINCT Name FROM Store;
+```
+**توضیحات:**
+- ایجاد ویو با تعریف رمزنگاری شده
+
+## بخش 6: رویه‌های ذخیره شده (Stored Procedures)
+
+### 6.1 رویه ساده
+```sql
+CREATE PROCEDURE GetAllProducts
+AS
+BEGIN
+    SELECT * FROM Product;
+END;
+```
+**توضیحات:**
+- رویه برای نمایش تمام محصولات
+
+### 6.2 رویه با پارامتر ورودی
+```sql
+CREATE PROCEDURE GetProductsByPriceRange
+    @MinPrice DECIMAL(10,2),
+    @MaxPrice DECIMAL(10,2)
+AS
+BEGIN
+    SELECT * 
+    FROM Product
+    WHERE Price BETWEEN @MinPrice AND @MaxPrice;
+END;
+```
+**توضیحات:**
+- نمایش محصولات در محدوده قیمتی مشخص
+
+### 6.3 رویه با پارامتر خروجی
+```sql
+CREATE PROCEDURE GetProductCount
+    @Count INT OUTPUT
+AS
+BEGIN
+    SELECT @Count = COUNT(*) FROM Product;
+END;
+```
+**توضیحات:**
+- بازگرداندن تعداد کل محصولات از طریق پارامتر خروجی
+
+### 6.4 رویه با پارامتر اختیاری
+```sql
+CREATE PROCEDURE GetProductsByCategory
+    @CategoryID INT = NULL
+AS
+BEGIN
+    IF @CategoryID IS NULL
+        SELECT * FROM Product;
+    ELSE
+        SELECT * FROM Product WHERE CategoryID = @CategoryID;
+END;
+```
+**توضیحات:**
+- نمایش محصولات یک دسته‌بندی خاص یا همه محصولات اگر دسته‌بندی مشخص نشده باشد
+
+### 6.5 رویه با کنترل خطا
+```sql
+CREATE PROCEDURE UpdateProductPrice
+    @ProductID INT,
+    @NewPrice DECIMAL(10,2)
+AS
+BEGIN
+    IF @NewPrice > 0
+    BEGIN
+        UPDATE Product 
+        SET Price = @NewPrice
+        WHERE ID = @ProductID;
+        SELECT 'Price updated successfully' AS Result;
+    END
+    ELSE    
+    BEGIN
+        SELECT 'Price must be greater than 0' AS Result;
+    END
+END;
+```
+**توضیحات:**
+- به‌روزرسانی قیمت محصول با بررسی اعتبار قیمت جدید
+
+## بخش 7: توابع و متغیرهای سیستمی
+
+### 7.1 @@ROWCOUNT
+```sql
+SELECT @@ROWCOUNT;
+PRINT @@ROWCOUNT;
+```
+**توضیحات:**
+- نمایش تعداد رکوردهای تأثیرگرفته از آخرین دستور
+
+### 7.2 مشاهده اشیاء پایگاه داده
+```sql
+SELECT * FROM sys.objects;
+SELECT DISTINCT type, type_desc FROM sys.objects;
+SELECT * FROM sys.objects WHERE type='U'; -- Tables
+SELECT * FROM sys.objects WHERE type='V'; -- Views
+```
+**توضیحات:**
+- نمایش اطلاعات اشیاء پایگاه داده
+- فیلتر کردن بر اساس نوع (جدول، ویو و ...)
+
+### 7.3 مشاهده کد ویوها
+```sql
+SELECT text FROM sys.syscomments
+WHERE id=OBJECT_ID('vwEmployee');
+```
+**توضیحات:**
+- نمایش کد SQL تعریف کننده یک ویو
