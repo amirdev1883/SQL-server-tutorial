@@ -673,4 +673,110 @@ VALUES('test', 60000)
    - از اسکیمای مناسب (مثل dbo) استفاده کنید
    - تریگرهای غیرضروری را غیرفعال کنید تا عملکرد بهبود یابد
 
-آیا می‌خواهید روی بخش خاصی از این توضیحات تمرکز بیشتری داشته باشید یا مثال‌های دیگری نیاز دارید؟
+
+
+
+
+
+
+# توضیح کامل Cursor در SQL Server
+
+## مقدمه‌ای بر Cursor
+Cursor (کورسور) یک ساختار در SQL Server است که به شما امکان می‌دهد روی مجموعه‌ای از رکوردها به صورت تکی و پیمایشی کار کنید، برخلاف عملیات عادی SQL که روی کل مجموعه داده‌ها به صورت یکجا عمل می‌کند.
+
+## ساختار کلی Cursor
+
+```sql
+DECLARE cursor_name CURSOR 
+[LOCAL|GLOBAL] 
+[FORWARD_ONLY|SCROLL] 
+[STATIC|KEYSET|DYNAMIC|FAST_FORWARD] 
+[READ_ONLY|SCROLL_LOCKS|OPTIMISTIC] 
+[TYPE_WARNING] 
+FOR select_statement 
+[FOR UPDATE [OF column_name [,...n]]]
+[;]
+```
+
+## مثال عملی با توضیحات خط به خط
+
+```sql
+-- تعریف متغیرهای مورد نیاز
+DECLARE @ID int
+DECLARE @Salary bigint
+DECLARE @sumSalary bigint
+SET @sumSalary = 0
+
+-- ایجاد یک Cursor با نام emp_cur
+-- این Cursor روی جدول Employee عمل می‌کد و مقادیر ID و Salary را برمی‌گرداند
+DECLARE emp_cur CURSOR
+FOR SELECT ID, Salary FROM Employee
+
+-- باز کردن Cursor برای استفاده
+OPEN emp_cur
+
+-- واکشی اولین رکورد از Cursor و ذخیره مقادیر در متغیرها
+FETCH NEXT FROM emp_cur
+INTO @ID, @Salary
+
+-- حلقه while برای پیمایش تمام رکوردها
+-- @@FETCH_STATUS = 0 یعنی واکشی موفقیت‌آمیز بوده
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    -- جمع کردن حقوق‌ها
+    SET @sumSalary = @sumSalary + @Salary
+    
+    -- واکشی رکورد بعدی
+    FETCH NEXT FROM emp_cur
+    INTO @ID, @Salary
+END
+
+-- نمایش مجموع حقوق‌ها
+PRINT @sumSalary
+
+-- بستن Cursor
+CLOSE emp_cur
+
+-- آزاد کردن منابع Cursor
+DEALLOCATE emp_cur
+
+-- مقایسه با روش عادی SQL
+SELECT SUM(Salary) FROM Employee
+```
+
+## توضیح بخش‌های مهم:
+
+1. **انواع Cursor**:
+   - `LOCAL`/`GLOBAL`: محدوده دید Cursor
+   - `FORWARD_ONLY`/`SCROLL`: جهت پیمایش
+   - `STATIC`/`KEYSET`/`DYNAMIC`/`FAST_FORWARD`: نوع رفتار با داده‌ها
+
+2. **@@FETCH_STATUS**:
+   - 0: واکشی موفق
+   - -1: واکشی ناموفق (پایان رکوردها)
+   - -2: رکورد حذف شده
+
+3. **مراحل کار با Cursor**:
+   - DECLARE: تعریف Cursor
+   - OPEN: باز کردن Cursor
+   - FETCH: واکشی رکوردها
+   - CLOSE: بستن Cursor
+   - DEALLOCATE: آزاد کردن منابع
+
+4. **مقایسه با روش عادی**:
+   - در مثال آخر، همان عملیات با یک دستور ساده SQL انجام شده است
+   - Cursorها معمولاً کندتر از عملیات مجموعه‌ای هستند
+
+## کاربردهای Cursor:
+- پردازش رکورد به رکورد
+- انجام عملیات پیچیده که در SQL ساده امکان‌پذیر نیست
+- مهاجرت داده‌ها با تبدیل مقادیر
+- اجرای منطق شرطی پیچیده بر اساس مقادیر رکوردها
+
+## نکات مهم:
+1. همیشه Cursorها را بعد از استفاده ببندید و منابع آنها را آزاد کنید.
+2. تا حد امکان از عملیات مجموعه‌ای به جای Cursor استفاده کنید.
+3. Cursorها منابع سیستمی زیادی مصرف می‌کنند.
+4. برای مجموعه‌های داده بزرگ، از Cursorهای کارآمد مانند FAST_FORWARD استفاده کنید.
+
+آیا نیاز به توضیح بیشتری درباره بخش خاصی از Cursorها دارید یا مثال‌های عملی دیگری نیاز دارید؟
