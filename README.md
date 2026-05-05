@@ -1,8 +1,8 @@
 # SQL Server Tutorial
 
 <p align="right">
-  <a href="./README.md">🇺🇸 English</a> |
-  <a href="./README.fa.md">🇮🇷 فارسی</a>
+  <a href="./README.md"> English</a> |
+  <a href="./README.fa.md">فارسی</a>
 </p>
 
 > [!IMPORTANT]
