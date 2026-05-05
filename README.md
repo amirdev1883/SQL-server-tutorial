@@ -1,471 +1,634 @@
-# SQL Server Tutorial
-
-<p align="right">
-  <a href="./README.md"> English</a> |
-  <a href="./README.fa.md">فارسی</a>
-</p>
-
-> [!IMPORTANT]
-> The English file should be the primary maintained README for this repository, with the Persian file kept as a translated companion. GitHub automatically surfaces a README from `.github`, the repository root, or `docs`, and GitHub recommends relative links for links between repository files. citeturn10view4turn11view2
+# Production-ready English conversion for SQL-server-tutorial
 
 ## Executive Summary
 
-This README is a professionally reviewed English rewrite of the original Persian tutorial in this repository. It preserves the original educational scope—table creation, sample inserts, basic `SELECT` queries, joins, views, stored procedures, functions, triggers, and cursors—while correcting problems in the source notes, including a trailing comma in `StoreProduct`, an incorrect join condition in the multi-table join and `vwEmployee`, a stored procedure that references a missing `CategoryID` column, a legacy `sys.syscomments` example, a trigger test insert without a column list, and a cursor example that stores salary values in `bigint` instead of a decimal type. fileciteturn0file0L5-L75 fileciteturn0file0L211-L258 fileciteturn0file0L299-L402 fileciteturn0file0L583-L660 fileciteturn0file0L682-L780
+This conversion rebuilds the tutorial into an English-first, production-oriented SQL Server learning repository while preserving the original teaching path: schema design, sample data, `SELECT`, `JOIN`, `VIEW`, stored procedures, functions, triggers, cursors, transactions, indexes, and metadata inspection. For repeatable scripts, I favored the more conservative `DROP ... IF EXISTS` plus `CREATE ...` pattern because Microsoft documents `IF EXISTS` support for `DROP VIEW`, `DROP PROCEDURE`, `DROP FUNCTION`, and `DROP TRIGGER` in SQL Server 2016+, while `CREATE OR ALTER` for views, procedures, functions, and triggers begins in SQL Server 2016 SP1+. citeturn7search0turn14view0turn7search2turn17view0turn6search0turn6search1turn8search1turn8search2
 
-The guidance below prioritizes official documentation from entity["company","Microsoft","software company"] and is formatted for practical use on entity["company","GitHub","developer platform"]. The revised examples assume **SQL Server 2016 SP1 or later**, because they use `CREATE OR ALTER` for views, procedures, functions, and triggers. If you are using an older version, replace those statements with `DROP ...` plus `CREATE ...` patterns. citeturn18view0turn6search1turn6search0turn9view6turn6search2
+The revised material also corrects the structural and pedagogical issues in the source tutorial: the trailing comma in `StoreProduct`, the invalid chain-to-employee join, the non-runnable `CategoryID` procedure example, and the legacy `sys.syscomments` metadata example. It keeps `NVARCHAR` and `N'...'` literals so the tutorial remains Unicode-safe, because Microsoft specifically documents that Unicode string constants should be prefixed with `N` when used with `nchar`/`nvarchar`, and it replaces compatibility-view guidance with `sys.sql_modules`, `OBJECT_DEFINITION`, and `sp_helptext`, which are the documented modern ways to inspect module definitions. citeturn2search1turn2search13turn15search1turn4search1turn2search2turn2search10turn2search6
 
-This tutorial uses Persian sample data intentionally to demonstrate Unicode-safe inserts into `NVARCHAR` columns. In SQL Server, Unicode string literals should be prefixed with `N` when you want them interpreted as `nvarchar` values rather than non-Unicode string constants. fileciteturn0file0L76-L158 citeturn9view2
+The technical guidance below is aligned primarily with official documentation from entity["company","Microsoft","software company"], and the repository structure is designed for clean navigation on entity["company","GitHub","developer platform"]. Assumption: the target platform is SQL Server 2016 SP1 or later unless otherwise noted. I did not execute these scripts against a live SQL Server instance in this environment, so the validation here is a static, syntax- and semantics-focused review against documented T-SQL behavior rather than a live engine test. citeturn11search0turn11search2turn6search4turn8search3
 
-> [!WARNING]
-> Two examples in this tutorial are intentionally disruptive and should be treated as **demo-only**: the database-level DDL trigger (`tr_blickcreate`) and the `INSTEAD OF INSERT` trigger on `Product` (`tr_notInsert`). DDL triggers fire after the triggering DDL statement and can roll back schema changes, and both DML and DDL triggers come with real security considerations if you allow untrusted trigger creation or modification. fileciteturn0file0L583-L660 citeturn9view15turn16view0
+## Source Audit and Conversion Decisions
 
-## Language Switcher and README Conventions
+The source Persian tutorial is educationally strong but needed several corrections before it could serve as a reliable English README for beginners. The most important fixes were straightforward. The `StoreProduct` table definition had a trailing comma before the closing parenthesis, which would cause a syntax error. The three-table join and `vwEmployee` view joined `Chain_Store` directly to `Employee` on matching `ID` values, even though the schema clearly models the relationship as `Chain_Store -> Store -> Employee`. The original optional-parameter procedure targeted a `CategoryID` column that does not exist in the actual `Product` table. In the English conversion, that concept is preserved, but the example is rewritten around an existing relationship so it is runnable.
 
-A multilingual repository is easiest to maintain when the default `README.md` is English and the translated companion lives beside it—for example, `README.fa.md`. GitHub surfaces the root README prominently and recommends relative links for navigation between files, which makes a simple in-file language switcher a reliable approach for both the web UI and cloned repositories. citeturn10view4turn11view2
+The naming strategy stays intentionally close to the original schema so the repository remains easy to compare across languages. That means objects like `Chain_Store` and `StoreProduct` are preserved instead of being renamed to more idiomatic alternatives such as `RetailChain` or `InventoryItem`. This choice reduces migration friction between the Persian and English versions, which is usually more important in a bilingual tutorial repository than aggressive refactoring.
 
-Use this switcher at the top of both files:
+The mapping below preserves the original learning structure while making the English repository easier to maintain as the primary root README, with Persian kept as the translated companion. GitHub’s documentation recommends relative links for repository files, which supports a simple language switcher at the top of both READMEs. citeturn11search0turn11search2
 
-```html
+| Original Persian file or section | New English file or section |
+|---|---|
+| `README.fa.md` | `README.fa.md` |
+| `README.md` Persian tutorial content | `README.md` English primary tutorial |
+| `بخش 1: ایجاد جداول` | `Creating Tables` |
+| `بخش 2: درج داده‌ها` | `Inserting Sample Data` |
+| `بخش 3: کوئری‌های پایه` | `Basic Queries` |
+| `بخش 4: کوئری‌های پیچیده` | `JOINs and Analysis` |
+| `بخش 5: ویوها` | `Views` |
+| `بخش 6: رویه‌های ذخیره شده` | `Stored Procedures` |
+| `آموزش Functions` | `Functions` |
+| `توضیح Triggerها` | `Triggers` |
+| `توضیح Cursor` | `Cursor and Set-Based Alternative` |
+
+## Recommended Repository Layout
+
+A production-friendly tutorial repository should separate schema creation, seeding, read-only examples, metadata exploration, and demo-only behaviors. That separation matters in SQL Server because `CREATE VIEW`, `CREATE PROCEDURE`, and `CREATE TRIGGER` must begin their own batches, and `GO` is a batch separator used by tools like SSMS and sqlcmd rather than a T-SQL statement itself. GitHub also recommends relative links between repository files, so the layout below works well both in the web UI and in local clones. citeturn9search0turn9search1turn9search2turn9search3turn9search9turn11search0turn11search2
+
+| Suggested file | Purpose | Safe to run normally |
+|---|---|---|
+| `README.md` | English primary tutorial | Yes |
+| `README.fa.md` | Persian companion tutorial | Yes |
+| `scripts/00-create-database.sql` | Creates the demo database if missing | Yes |
+| `scripts/01-create-tables.sql` | Creates tables and constraints | Yes |
+| `scripts/02-seed-data.sql` | Loads English sample data | Yes |
+| `scripts/03-basic-selects.sql` | Read-only `SELECT`, `WHERE`, `GROUP BY`, `HAVING` examples | Yes |
+| `scripts/04-joins.sql` | Read-only join examples | Yes |
+| `scripts/05-views.sql` | View creation and usage | Yes, with caution on `WITH ENCRYPTION` |
+| `scripts/06-stored-procedures.sql` | Procedure examples | Yes |
+| `scripts/07-functions.sql` | UDF examples | Yes |
+| `scripts/08-metadata.sql` | Catalog and definition inspection | Yes |
+| `scripts/09-triggers-demo.sql` | DML and DDL trigger demos | Demo only |
+| `scripts/10-cursors-demo.sql` | Cursor demo and set-based comparison | Yes |
+| `scripts/11-transactions-demo.sql` | Transaction and error-handling demo | Yes, preview-safe because it rolls back |
+| `scripts/12-indexes.sql` | Recommended nonclustered indexes | Yes |
+
+## Ready-to-use README.md
+
+The README below keeps the original educational scope, but rewrites the language for English-speaking readers, replaces the invalid examples with runnable ones, uses Unicode-safe literals, and clearly labels demo-only features such as blocking DDL triggers and `WITH ENCRYPTION`. Those choices reflect documented SQL Server behavior for Unicode literals, compatibility views, DDL triggers, and encrypted view definitions. citeturn2search1turn2search13turn15search1turn10search0turn4search3
+
+````md
+# SQL Server Tutorial
+
 <p align="right">
-  <a href="./README.md">🇺🇸 English</a> |
-  <a href="./README.fa.md">🇮🇷 فارسی</a>
+  <a href="./README.md">English</a> |
+  <a href="./README.fa.md">فارسی</a>
 </p>
-```
 
-If you want badges, keep them optional and lightweight. GitHub READMEs commonly use badges, and Shields supports static badges that can be embedded directly in Markdown. citeturn8search1turn8search2turn8search12
+> **Primary README note**  
+> This English file should be the primary maintained README for this repository.  
+> The Persian file should be kept as a translated companion.
 
-```md
-[![Language: English](https://img.shields.io/badge/language-English-blue)](./README.md)
-[![زبان: فارسی](https://img.shields.io/badge/زبان-فارسی-green)](./README.fa.md)
-[![SQL Server](https://img.shields.io/badge/database-SQL%20Server-CC2927)](#sql-server-tutorial)
-```
+A practical SQL Server tutorial built around a small retail-chain database.
 
-A good GitHub README should explain what the project does, why it is useful, how to get started, and where to go next. GitHub also auto-generates an outline from headings, so a clean heading structure improves navigation automatically. citeturn10view4turn10view5
+This repository starts with core SQL Server concepts such as `CREATE TABLE`, `INSERT`, and `SELECT`, then moves into more advanced topics including `JOIN`, `VIEW`, stored procedures, functions, triggers, cursors, transactions, indexes, and metadata inspection.
 
-## Object Inventory
+## Executive Summary
 
-The original tutorial defined a compact chain-store schema plus a set of derived objects and demonstrations. The table below classifies each object by purpose and whether it is safe to run in a normal demo database without intentionally blocking behavior or requiring schema changes beyond the currently defined tables. The classification is based on the original Persian file and on official SQL Server behavior for modules, triggers, and metadata objects. fileciteturn0file0L5-L780 citeturn9view15turn9view8turn9view9turn9view10
+This tutorial uses a small but realistic retail-chain schema to teach SQL Server step by step.
 
-| Name | Purpose | Safe to run | Notes |
-|---|---|---:|---|
-| `dbo.Product` | Stores products and prices | Yes | Add `CHECK (Price > 0)` for integrity |
-| `dbo.Chain_Store` | Stores chain brands | Yes | Parent table for `Store` |
-| `dbo.Store` | Stores branches/locations | Yes | References `Chain_Store` |
-| `dbo.Employee` | Stores employees and salaries | Yes | References `Store`; salary should stay decimal |
-| `dbo.StoreProduct` | Bridge table between stores and products | Yes | Original script had a trailing comma; add `UNIQUE (S_ID, P_ID)` |
-| `dbo.vwEmployee` | Store/chain/employee reporting view | Yes | Must use corrected join logic |
-| `dbo.vw_storeEmployeeCount` | Employee count by store | Yes | Safe aggregate view |
-| `dbo.vwStoreName` | Distinct store names | Yes | `WITH ENCRYPTION` is optional and comes with caveats |
-| `dbo.GetAllProducts` | Returns all products | Yes | Read-only procedure |
-| `dbo.GetProductsByPriceRange` | Filters products by price band | Yes | Read-only procedure |
-| `dbo.GetProductCount` | Returns total product count through output param | Yes | Safe procedure |
-| `dbo.GetProductsByCategory` | Optional-parameter demo | No | Current schema does not define `Product.CategoryID` |
-| `dbo.UpdateProductPrice` | Updates product price | Yes | Use guarded version with `TRY...CATCH` and `THROW` |
-| `dbo.CalculateTax` | Scalar tax calculation | Yes | Safe educational scalar UDF |
-| `dbo.GetEmployeeCount` | Scalar store employee count | Yes | Safe educational scalar UDF |
-| `dbo.GetStoreProducts` | Inline TVF for store inventory | Yes | Safe inline table-valued function |
-| `dbo.GetLowStockProducts` | Inline TVF for low stock lookup | Yes | Safe inline table-valued function |
-| `dbo.GetStoreSummary` | Multi-statement TVF with store rollup | Yes | Safe if tables and data exist |
-| `tr_blickcreate` | Blocks `CREATE_TABLE` / `ALTER_TABLE` / `DROP_TABLE` | No | Demo-only, intentionally disruptive |
-| `dbo.tr_notInsert` | Replaces normal inserts to `Product` | No | Demo-only, intentionally suppresses inserts |
+You will learn how to:
 
-The most important corrections are these. First, the original `StoreProduct` definition has a trailing comma before the closing parenthesis, which must be removed. Second, the original multi-table join and `vwEmployee` both join `Chain_Store` directly to `Employee` on `ID = ID`, which does not match the foreign-key design of the schema; the correct path is `Chain_Store -> Store -> Employee`. Third, the original optional-parameter procedure references `CategoryID`, but the original `Product` table does not define that column. Fourth, the original metadata example uses `sys.syscomments`, which Microsoft explicitly says not to use for new development. fileciteturn0file0L62-L70 fileciteturn0file0L238-L258 fileciteturn0file0L341-L349 fileciteturn0file0L400-L401 citeturn9view9turn9view10turn9view11
+- create related tables with primary and foreign keys
+- insert clean sample data
+- write basic and intermediate queries
+- join multiple tables correctly
+- build views, stored procedures, and functions
+- understand trigger behavior and its risks
+- compare cursor-based logic to set-based SQL
+- use transactions and error handling
+- create indexes for faster queries
+- inspect database objects using system catalog views
 
-## Safe Script Layout and Execution Order
+The English version also corrects several problems from the original notes so the examples are runnable on modern SQL Server.
 
-A safe repository layout separates schema creation, sample data, read-only examples, and demo-only behaviors. This is especially useful because foreign keys create ordering requirements, and SQL Server requires `CREATE VIEW`, `CREATE PROCEDURE`, and `CREATE TRIGGER` to lead their own batches. `CREATE OR ALTER` also helps make repeated executions more predictable on supported versions. citeturn9view1turn17view3turn19search2turn20view2turn18view0turn6search1turn9view6
+## Table of Contents
 
-Recommended structure:
+- [Version and Safety Notes](#version-and-safety-notes)
+- [Recommended Repository Layout](#recommended-repository-layout)
+- [Scenario and Data Model](#scenario-and-data-model)
+- [Creating the Database and Tables](#creating-the-database-and-tables)
+- [Inserting Sample Data](#inserting-sample-data)
+- [Basic Queries](#basic-queries)
+- [JOINs and Analysis](#joins-and-analysis)
+- [Views](#views)
+- [Stored Procedures](#stored-procedures)
+- [Functions](#functions)
+- [Triggers](#triggers)
+- [Cursor](#cursor)
+- [Transactions and Error Handling](#transactions-and-error-handling)
+- [Indexes](#indexes)
+- [Metadata and Object Inspection](#metadata-and-object-inspection)
+- [Testing Checklist](#testing-checklist)
+- [Best Practices](#best-practices)
+
+## Version and Safety Notes
+
+### Target version
+
+This tutorial assumes **SQL Server 2016 SP1 or later** for the documentation as a whole.
+
+The standalone scripts in the `scripts/` folder are intentionally written with a conservative `DROP ... IF EXISTS` plus `CREATE ...` style so they remain broadly compatible with **SQL Server 2016 and later**.
+
+### Important warnings
+
+- The **DDL trigger** example is **demo-only** and can block schema changes such as `CREATE TABLE`, `ALTER TABLE`, and `DROP TABLE`.
+- The **INSTEAD OF INSERT** trigger example is **demo-only** and intentionally changes normal insert behavior.
+- The view example that uses `WITH ENCRYPTION` is included for education, but it should not be treated as a real security boundary or as a substitute for access control or data encryption.
+- Even though the sample strings below are English, the examples still use `N'...'` because the schema uses `NVARCHAR`, and this keeps the tutorial Unicode-safe.
+
+## Recommended Repository Layout
 
 ```text
-scripts/
-  00-create-database.sql          -- optional: create demo database and USE it
-  01-create-tables.sql            -- base tables, PK/FK/CHECK/UNIQUE constraints
-  02-seed-data.sql                -- sample Persian data with N-prefixed literals
-  03-basic-selects.sql            -- SELECT, WHERE, LIKE, BETWEEN, GROUP BY
-  04-joins.sql                    -- single-table and multi-table join examples
-  05-views.sql                    -- vwEmployee, vw_storeEmployeeCount, vwStoreName
-  06-stored-procedures.sql        -- stored procedure examples
-  07-functions.sql                -- scalar, inline TVF, multi-statement TVF
-  08-metadata.sql                 -- sys.objects, sys.triggers, sys.sql_modules, OBJECT_DEFINITION
-  09-triggers-demo.sql            -- demo-only trigger examples
-  10-cursors-demo.sql             -- cursor demo and set-based comparison
-  99-cleanup-demo.sql             -- optional drop/reset script for a disposable lab database
+SQL-server-tutorial/
+│
+├── README.md
+├── README.fa.md
+└── scripts/
+    ├── 00-create-database.sql
+    ├── 01-create-tables.sql
+    ├── 02-seed-data.sql
+    ├── 03-basic-selects.sql
+    ├── 04-joins.sql
+    ├── 05-views.sql
+    ├── 06-stored-procedures.sql
+    ├── 07-functions.sql
+    ├── 08-metadata.sql
+    ├── 09-triggers-demo.sql
+    ├── 10-cursors-demo.sql
+    ├── 11-transactions-demo.sql
+    └── 12-indexes.sql
 ```
 
-Because GitHub supports Mermaid diagrams in fenced `mermaid` code blocks, the execution order below will render directly in a README. citeturn13search0turn13search2
+## Scenario and Data Model
 
-```mermaid
-flowchart TD
-    A[00-create-database.sql] --> B[01-create-tables.sql]
-    B --> C[02-seed-data.sql]
-    C --> D[03-basic-selects.sql]
-    D --> E[04-joins.sql]
-    E --> F[05-views.sql]
-    F --> G[06-stored-procedures.sql]
-    G --> H[07-functions.sql]
-    H --> I[08-metadata.sql]
-    I --> J[09-triggers-demo.sql]
-    J --> K[10-cursors-demo.sql]
-    K --> L[99-cleanup-demo.sql]
-```
+The tutorial models a small retail-chain system.
 
-Run the trigger script last and only in a disposable lab environment. The DDL trigger can block later schema changes, and the `INSTEAD OF INSERT` trigger intentionally changes expected insert behavior. Triggers are enabled by default when created, and they can later be disabled or re-enabled explicitly if needed. citeturn9view15turn9view8turn2search4
+### Tables
 
-## Schema and Sample Data
+- `Chain_Store` stores chain or brand names
+- `Store` stores physical branches
+- `Employee` stores store employees
+- `Product` stores products and prices
+- `StoreProduct` is a bridge table that stores inventory by store and product
 
-The original tutorial models a retail chain: a chain owns stores, stores employ people, and stores stock products through a many-to-many bridge table. That basic design is sound and maps directly to SQL Server primary-key and foreign-key constraints. The improvements below add explicit schema names, integrity constraints, and Unicode-safe sample data handling. fileciteturn0file0L5-L158 citeturn9view1turn14view2turn7search0turn14view4turn14view5turn9view2
+### Relationships
 
-```mermaid
-erDiagram
-    CHAIN_STORE ||--o{ STORE : owns
-    STORE ||--o{ EMPLOYEE : employs
-    STORE ||--o{ STOREPRODUCT : stocks
-    PRODUCT ||--o{ STOREPRODUCT : appears_in
+- one `Chain_Store` can have many `Store` rows
+- one `Store` can have many `Employee` rows
+- `Store` and `Product` have a many-to-many relationship through `StoreProduct`
 
-    CHAIN_STORE {
-        int ID PK
-        nvarchar Name
-    }
+### Why this schema is useful for learning
 
-    STORE {
-        int ID PK
-        nvarchar Name
-        tinyint Zone
-        nvarchar City
-        nvarchar Address
-        int C_ID FK
-    }
+This design teaches several important database concepts at the same time:
 
-    EMPLOYEE {
-        int ID PK
-        nvarchar Name
-        decimal Salary
-        int S_ID FK
-    }
+- primary keys
+- foreign keys
+- one-to-many relationships
+- many-to-many relationships
+- bridge tables
+- grouped reporting
+- multi-table joins
 
-    PRODUCT {
-        int ID PK
-        nvarchar Name
-        decimal Price
-    }
-
-    STOREPRODUCT {
-        int ID PK
-        int S_ID FK
-        int P_ID FK
-        int Amount
-    }
-```
-
-### Table Creation
-
-`IDENTITY` auto-generates numeric values, but it does **not** guarantee uniqueness by itself; uniqueness is enforced by the primary-key constraint. `DECIMAL(10,2)` means 10 total digits with 2 digits to the right of the decimal point. `CHECK` constraints are a simple, first-class way to enforce positive inventory, salary, and price rules. citeturn9view0turn7search0turn14view4turn14view5turn14view2
-
-#### Product
+## Creating the Database and Tables
 
 ```sql
-CREATE TABLE dbo.Product (
-    ID INT IDENTITY(1,1) NOT NULL
-        CONSTRAINT PK_Product PRIMARY KEY,
+USE master;
+GO
+
+IF DB_ID(N'SQLServerTutorialDB') IS NULL
+BEGIN
+    CREATE DATABASE SQLServerTutorialDB;
+END;
+GO
+
+USE SQLServerTutorialDB;
+GO
+
+IF OBJECT_ID(N'dbo.StoreProduct', N'U') IS NOT NULL DROP TABLE dbo.StoreProduct;
+IF OBJECT_ID(N'dbo.Employee', N'U') IS NOT NULL DROP TABLE dbo.Employee;
+IF OBJECT_ID(N'dbo.Store', N'U') IS NOT NULL DROP TABLE dbo.Store;
+IF OBJECT_ID(N'dbo.Product', N'U') IS NOT NULL DROP TABLE dbo.Product;
+IF OBJECT_ID(N'dbo.Chain_Store', N'U') IS NOT NULL DROP TABLE dbo.Chain_Store;
+GO
+
+CREATE TABLE dbo.Chain_Store
+(
+    ID INT IDENTITY(1,1) CONSTRAINT PK_Chain_Store PRIMARY KEY,
+    Name NVARCHAR(100) NOT NULL CONSTRAINT UQ_Chain_Store_Name UNIQUE
+);
+GO
+
+CREATE TABLE dbo.Product
+(
+    ID INT IDENTITY(1,1) CONSTRAINT PK_Product PRIMARY KEY,
     Name NVARCHAR(100) NOT NULL,
-    Price DECIMAL(10,2) NOT NULL
-        CONSTRAINT CK_Product_Price CHECK (Price > 0)
+    Price DECIMAL(10,2) NOT NULL,
+    CONSTRAINT CK_Product_Price CHECK (Price > 0)
 );
-```
+GO
 
-#### Chain Store
-
-```sql
-CREATE TABLE dbo.Chain_Store (
-    ID INT IDENTITY(1,1) NOT NULL
-        CONSTRAINT PK_Chain_Store PRIMARY KEY,
-    Name NVARCHAR(100) NOT NULL
-);
-```
-
-#### Store
-
-```sql
-CREATE TABLE dbo.Store (
-    ID INT IDENTITY(1,1) NOT NULL
-        CONSTRAINT PK_Store PRIMARY KEY,
+CREATE TABLE dbo.Store
+(
+    ID INT IDENTITY(1,1) CONSTRAINT PK_Store PRIMARY KEY,
     Name NVARCHAR(100) NOT NULL,
     Zone TINYINT NOT NULL,
     City NVARCHAR(100) NOT NULL,
-    Address NVARCHAR(100) NOT NULL,
-    C_ID INT NOT NULL
-        CONSTRAINT FK_Store_ChainStore
-        REFERENCES dbo.Chain_Store(ID)
+    Address NVARCHAR(200) NOT NULL,
+    C_ID INT NOT NULL,
+    CONSTRAINT FK_Store_Chain_Store FOREIGN KEY (C_ID) REFERENCES dbo.Chain_Store(ID),
+    CONSTRAINT CK_Store_Zone CHECK (Zone BETWEEN 1 AND 20)
 );
-```
+GO
 
-#### Employee
-
-```sql
-CREATE TABLE dbo.Employee (
-    ID INT IDENTITY(1,1) NOT NULL
-        CONSTRAINT PK_Employee PRIMARY KEY,
+CREATE TABLE dbo.Employee
+(
+    ID INT IDENTITY(1,1) CONSTRAINT PK_Employee PRIMARY KEY,
     Name NVARCHAR(100) NOT NULL,
-    Salary DECIMAL(10,2) NOT NULL
-        CONSTRAINT CK_Employee_Salary CHECK (Salary >= 0),
-    S_ID INT NOT NULL
-        CONSTRAINT FK_Employee_Store
-        REFERENCES dbo.Store(ID)
+    Salary DECIMAL(10,2) NOT NULL,
+    S_ID INT NOT NULL,
+    CONSTRAINT FK_Employee_Store FOREIGN KEY (S_ID) REFERENCES dbo.Store(ID),
+    CONSTRAINT CK_Employee_Salary CHECK (Salary > 0)
 );
-```
+GO
 
-#### StoreProduct
-
-The original file had a trailing comma before `)`, which would cause a syntax error. The corrected script also prevents duplicate store/product pairs. fileciteturn0file0L62-L70
-
-```sql
-CREATE TABLE dbo.StoreProduct (
-    ID INT IDENTITY(1,1) NOT NULL
-        CONSTRAINT PK_StoreProduct PRIMARY KEY,
-    S_ID INT NOT NULL
-        CONSTRAINT FK_StoreProduct_Store
-        REFERENCES dbo.Store(ID),
-    P_ID INT NOT NULL
-        CONSTRAINT FK_StoreProduct_Product
-        REFERENCES dbo.Product(ID),
-    Amount INT NOT NULL
-        CONSTRAINT CK_StoreProduct_Amount CHECK (Amount >= 0),
+CREATE TABLE dbo.StoreProduct
+(
+    ID INT IDENTITY(1,1) CONSTRAINT PK_StoreProduct PRIMARY KEY,
+    S_ID INT NOT NULL,
+    P_ID INT NOT NULL,
+    Amount INT NOT NULL,
+    CONSTRAINT FK_StoreProduct_Store FOREIGN KEY (S_ID) REFERENCES dbo.Store(ID),
+    CONSTRAINT FK_StoreProduct_Product FOREIGN KEY (P_ID) REFERENCES dbo.Product(ID),
+    CONSTRAINT CK_StoreProduct_Amount CHECK (Amount >= 0),
     CONSTRAINT UQ_StoreProduct_Store_Product UNIQUE (S_ID, P_ID)
 );
+GO
 ```
 
-### Sample Inserts
+### Table notes
 
-The insert order below respects foreign-key dependencies: first `Chain_Store`, then `Product`, then `Store`, then `Employee`, then `StoreProduct`. The string literals are prefixed with `N` so the Persian data is stored as Unicode in `NVARCHAR` columns. fileciteturn0file0L76-L158 citeturn9view1turn9view2
+#### `dbo.Product`
 
-#### Insert into `Chain_Store`
+- `ID` is an identity primary key
+- `Name` is `NVARCHAR(100)` so the table remains friendly to multilingual content
+- `Price` uses `DECIMAL(10,2)` because monetary values should not use floating-point types
+- `CHECK (Price > 0)` prevents invalid prices
+
+#### `dbo.Chain_Store`
+
+- Stores the retail chain or parent brand
+- `Name` is unique so duplicate chain names are not allowed
+
+#### `dbo.Store`
+
+- Stores branch data
+- `C_ID` is a foreign key to `Chain_Store`
+- `Zone` has a range constraint to prevent obviously invalid values
+
+#### `dbo.Employee`
+
+- Each employee belongs to exactly one store through `S_ID`
+- `Salary` must be greater than zero
+
+#### `dbo.StoreProduct`
+
+- This is the bridge table between stores and products
+- `Amount` stores inventory quantity
+- `UNIQUE (S_ID, P_ID)` prevents the same product from being inserted twice for the same store
+
+## Inserting Sample Data
+
+### Seed chain stores
 
 ```sql
 INSERT INTO dbo.Chain_Store (Name)
 VALUES
-    (N'فروشگاه‌های شهروند'),
-    (N'هایپراستار'),
-    (N'رفاه'),
-    (N'جانبو');
+    (N'NorthMart'),
+    (N'HyperStar'),
+    (N'FreshChoice'),
+    (N'JumboMart');
+GO
 ```
 
-#### Insert into `Product`
+### Seed products
 
 ```sql
 INSERT INTO dbo.Product (Name, Price)
 VALUES
-    (N'لبنیات پرچرب', 45.50),
-    (N'نوشابه خانواده', 12.75),
-    (N'روغن نباتی', 32.00),
-    (N'برنج ایرانی', 120.00),
-    (N'ماکارونی', 15.25),
-    (N'شیر کم چرب', 28.50),
-    (N'تخم مرغ', 35.00),
-    (N'مرغ بسته‌بندی', 85.00);
+    (N'Whole Milk', 4.50),
+    (N'Family Soda', 1.75),
+    (N'Vegetable Oil', 8.90),
+    (N'Basmati Rice', 18.50),
+    (N'Pasta', 2.40),
+    (N'Low-Fat Milk', 4.20),
+    (N'Eggs', 5.10),
+    (N'Packaged Chicken', 12.75);
+GO
 ```
 
-#### Insert into `Store`
+### Seed store branches
 
 ```sql
 INSERT INTO dbo.Store (Name, Zone, City, Address, C_ID)
 VALUES
-    (N'شهروند صادقیه', 1, N'تهران', N'میدان صادقیه، بلوار آیت‌الله کاشانی', 1),
-    (N'شهروند ونک', 2, N'تهران', N'میدان ونک، خیابان ملاصدرا', 1),
-    (N'هایپراستار اصفهان', 3, N'اصفهان', N'چهارباغ بالا، مجتمع پارک', 2),
-    (N'رفاه شیراز', 4, N'شیراز', N'بلوار زند، جنب بازار وکیل', 3),
-    (N'جانبو مشهد', 5, N'مشهد', N'بلوار وکیل‌آباد، مجتمع الماس شرق', 4),
-    (N'هایپراستار کرج', 1, N'کرج', N'میدان شهدا، بلوار موذن', 2);
+    (N'NorthMart Downtown', 1, N'Toronto', N'100 King St W', 1),
+    (N'NorthMart North York', 2, N'Toronto', N'5000 Yonge St', 1),
+    (N'HyperStar Ottawa East', 3, N'Ottawa', N'200 Rideau St', 2),
+    (N'FreshChoice Vancouver Central', 4, N'Vancouver', N'880 Granville St', 3),
+    (N'JumboMart Calgary West', 5, N'Calgary', N'350 8 Ave SW', 4),
+    (N'HyperStar Montreal Laval', 1, N'Montreal', N'1200 Saint-Martin Blvd W', 2);
+GO
 ```
 
-#### Insert into `Employee`
+### Seed employees
 
 ```sql
 INSERT INTO dbo.Employee (Name, Salary, S_ID)
 VALUES
-    (N'محمد حسینی', 8500000.00, 1),
-    (N'فاطمه محمدی', 7800000.00, 1),
-    (N'رضا کریمی', 9200000.00, 2),
-    (N'زهرا احمدی', 8100000.00, 3),
-    (N'علی رضایی', 9500000.00, 4),
-    (N'نازنین نوروزی', 8800000.00, 5),
-    (N'امیر عباسی', 9000000.00, 6),
-    (N'سمیه غفاری', 8300000.00, 2);
+    (N'Olivia Carter', 52000.00, 1),
+    (N'Ethan Brooks', 48000.00, 1),
+    (N'Liam Turner', 56000.00, 2),
+    (N'Emma Collins', 49500.00, 3),
+    (N'Noah Bennett', 61000.00, 4),
+    (N'Ava Mitchell', 53000.00, 5),
+    (N'Mason Reed', 57500.00, 6),
+    (N'Sophia Parker', 50500.00, 2);
+GO
 ```
 
-#### Insert into `StoreProduct`
+### Seed inventory
 
 ```sql
 INSERT INTO dbo.StoreProduct (S_ID, P_ID, Amount)
 VALUES
-    -- Shahrevand Sadeghiyeh
+    -- NorthMart Downtown
     (1, 1, 150), (1, 2, 200), (1, 3, 100), (1, 4, 80),
-    -- Shahrevand Vanak
+
+    -- NorthMart North York
     (2, 1, 120), (2, 5, 180), (2, 6, 90), (2, 7, 110),
-    -- Hyperstar Esfahan
+
+    -- HyperStar Ottawa East
     (3, 2, 160), (3, 3, 70), (3, 4, 60), (3, 8, 50),
-    -- Refah Shiraz
+
+    -- FreshChoice Vancouver Central
     (4, 1, 90), (4, 6, 120), (4, 7, 80), (4, 5, 150),
-    -- Janbo Mashhad
+
+    -- JumboMart Calgary West
     (5, 3, 110), (5, 4, 70), (5, 8, 60), (5, 2, 180),
-    -- Hyperstar Karaj
+
+    -- HyperStar Montreal Laval
     (6, 1, 130), (6, 2, 170), (6, 5, 140), (6, 7, 100);
+GO
 ```
 
-## Basic Queries and Joins
+## Basic Queries
 
-The original query section introduced `SELECT *`, filtering with `WHERE`, range checks with `BETWEEN`, pattern matching with `LIKE`, grouping with `GROUP BY`, and simple joins. Those are preserved below with corrected naming and consistent schema qualification. fileciteturn0file0L160-L247
-
-### Basic `SELECT`
+### Show all rows
 
 ```sql
 SELECT * FROM dbo.Chain_Store;
 SELECT * FROM dbo.Store;
 SELECT * FROM dbo.Employee;
 SELECT * FROM dbo.Product;
+SELECT * FROM dbo.StoreProduct;
 ```
 
-### Filtering with `WHERE`
+### Select specific columns
+
+```sql
+SELECT Name, Price
+FROM dbo.Product;
+```
+
+### Filter with `WHERE`
 
 ```sql
 SELECT Name, Salary
 FROM dbo.Employee
-WHERE Salary > 8500000;
+WHERE Salary > 50000;
 ```
 
 ```sql
 SELECT Name, Salary
 FROM dbo.Employee
-WHERE Salary BETWEEN 8500000 AND 9000000;
+WHERE Salary BETWEEN 50000 AND 55000;
 ```
 
 ```sql
 SELECT Name, Salary
 FROM dbo.Employee
-WHERE Name LIKE N'%ر%';
+WHERE Name LIKE N'%a%';
 ```
 
-`LIKE` works with Unicode string types too, but when working with `NVARCHAR`, keep your literal Unicode-safe with the `N` prefix. citeturn1search18turn9view2
-
-### Grouping with `GROUP BY`
+### `DISTINCT`
 
 ```sql
-SELECT S_ID, COUNT(*) AS EmployeeCount
+SELECT DISTINCT City
+FROM dbo.Store;
+```
+
+### `ORDER BY`
+
+```sql
+SELECT Name, Price
+FROM dbo.Product
+ORDER BY Price DESC;
+```
+
+### Aggregate functions
+
+```sql
+SELECT
+    COUNT(*) AS TotalProducts,
+    MIN(Price) AS MinPrice,
+    MAX(Price) AS MaxPrice,
+    AVG(Price) AS AvgPrice,
+    SUM(Price) AS SumPrice
+FROM dbo.Product;
+```
+
+### `GROUP BY`
+
+```sql
+SELECT
+    S_ID,
+    COUNT(*) AS EmployeeCount,
+    AVG(Salary) AS AvgSalary,
+    SUM(Salary) AS TotalSalary
 FROM dbo.Employee
 GROUP BY S_ID;
 ```
 
+### `HAVING`
+
 ```sql
-SELECT S_ID, Name, COUNT(*) AS EmployeeCount
+SELECT
+    S_ID,
+    COUNT(*) AS EmployeeCount
 FROM dbo.Employee
-GROUP BY S_ID, Name;
+GROUP BY S_ID
+HAVING COUNT(*) > 1;
 ```
 
-The second grouped query is still valid, but its grouping grain is “employee within a store,” so in realistic data it often produces `1` per unique employee/store pair rather than a useful store-level summary. It is preserved because it appeared in the original tutorial. fileciteturn0file0L191-L205
-
-### Simple Join
+### Subquery example
 
 ```sql
-SELECT s.Name, COUNT(*) AS EmployeeCount
+SELECT Name, Salary
+FROM dbo.Employee
+WHERE Salary > (
+    SELECT AVG(Salary)
+    FROM dbo.Employee
+);
+```
+
+### Window function example
+
+```sql
+SELECT
+    Name,
+    Salary,
+    ROW_NUMBER() OVER (ORDER BY Salary DESC) AS SalaryRank
+FROM dbo.Employee;
+```
+
+## JOINs and Analysis
+
+### Simple inner join
+
+```sql
+SELECT
+    s.Name AS StoreName,
+    COUNT(e.ID) AS EmployeeCount
 FROM dbo.Store AS s
 INNER JOIN dbo.Employee AS e
     ON s.ID = e.S_ID
-GROUP BY s.Name;
+GROUP BY s.Name
+ORDER BY s.Name;
 ```
 
-### Join with Conditions
+### Join with filtering and `HAVING`
 
 ```sql
-SELECT COUNT(*) AS EmployeeCount, s.Name AS StoreName
+SELECT
+    s.Name AS StoreName,
+    COUNT(*) AS EmployeeCount,
+    SUM(e.Salary) AS TotalPayroll
 FROM dbo.Employee AS e
 INNER JOIN dbo.Store AS s
     ON e.S_ID = s.ID
-WHERE e.Salary > 10000
+WHERE e.Salary > 50000
 GROUP BY s.Name
-HAVING SUM(e.Salary) > 2000;
+HAVING SUM(e.Salary) > 100000
+ORDER BY TotalPayroll DESC;
 ```
 
-This query is syntactically fine, but with the current sample dataset the thresholds are intentionally trivial: every salary is already greater than `10000`, and all store salary totals are above `2000`. That makes it a good syntax example but not a very selective reporting query. fileciteturn0file0L224-L234
-
-### Corrected Multi-Table Join
-
-The original three-table join connected `Chain_Store` directly to `Employee` on `Chain_Store.ID = Employee.ID`, which does not match the defined foreign-key relationships. The corrected path is `Chain_Store.ID = Store.C_ID`, then `Store.ID = Employee.S_ID`. fileciteturn0file0L30-L47 fileciteturn0file0L238-L242
+### Correct three-table join
 
 ```sql
-SELECT cs.Name AS chain, s.Name AS store, e.Name AS emp
-FROM dbo.Chain_Store AS cs
-INNER JOIN dbo.Store AS s
-    ON cs.ID = s.C_ID
-INNER JOIN dbo.Employee AS e
-    ON e.S_ID = s.ID
-ORDER BY chain, store DESC;
-```
-
-## Views, Procedures, and Metadata
-
-Views encapsulate queries as virtual tables, and SQL Server documents them as a way to simplify access patterns or present a stable interface over underlying tables. In this README, the view and procedure examples preserve the original sections while adopting safer defaults such as schema-qualified names and `SET NOCOUNT ON` in procedures. `CREATE OR ALTER VIEW` and `CREATE OR ALTER PROCEDURE` require SQL Server 2016 SP1 or later. fileciteturn0file0L249-L402 citeturn18view0turn6search1turn20view3turn9view17
-
-### Views
-
-#### Simple reporting view
-
-The original `vwEmployee` inherited the same incorrect join as the multi-table join section. The corrected definition below matches the schema. fileciteturn0file0L253-L257
-
-```sql
-CREATE OR ALTER VIEW dbo.vwEmployee AS
 SELECT
-    cs.Name AS chain,
-    s.Name AS store,
-    e.Name AS emp
+    cs.Name AS ChainName,
+    s.Name AS StoreName,
+    e.Name AS EmployeeName
 FROM dbo.Chain_Store AS cs
 INNER JOIN dbo.Store AS s
     ON cs.ID = s.C_ID
 INNER JOIN dbo.Employee AS e
-    ON e.S_ID = s.ID;
+    ON s.ID = e.S_ID
+ORDER BY ChainName, StoreName DESC, EmployeeName;
+```
+
+### Inventory report by store
+
+```sql
+SELECT
+    s.Name AS StoreName,
+    p.Name AS ProductName,
+    sp.Amount
+FROM dbo.StoreProduct AS sp
+INNER JOIN dbo.Store AS s
+    ON sp.S_ID = s.ID
+INNER JOIN dbo.Product AS p
+    ON sp.P_ID = p.ID
+ORDER BY s.Name, p.Name;
+```
+
+### Inventory value by store
+
+```sql
+SELECT
+    s.Name AS StoreName,
+    SUM(p.Price * sp.Amount) AS InventoryValue
+FROM dbo.StoreProduct AS sp
+INNER JOIN dbo.Store AS s
+    ON sp.S_ID = s.ID
+INNER JOIN dbo.Product AS p
+    ON sp.P_ID = p.ID
+GROUP BY s.Name
+ORDER BY InventoryValue DESC;
+```
+
+## Views
+
+Views help simplify repeated queries and present result sets like virtual tables.
+
+### Employee reporting view
+
+```sql
+DROP VIEW IF EXISTS dbo.vwEmployee;
+GO
+
+CREATE VIEW dbo.vwEmployee
+AS
+SELECT
+    cs.Name AS ChainName,
+    s.Name AS StoreName,
+    e.Name AS EmployeeName,
+    e.Salary
+FROM dbo.Chain_Store AS cs
+INNER JOIN dbo.Store AS s
+    ON cs.ID = s.C_ID
+INNER JOIN dbo.Employee AS e
+    ON s.ID = e.S_ID;
 GO
 ```
 
-Usage:
+### Use the view
 
 ```sql
 SELECT * FROM dbo.vwEmployee;
-SELECT DISTINCT emp FROM dbo.vwEmployee;
+SELECT DISTINCT EmployeeName FROM dbo.vwEmployee;
 ```
 
-#### View with calculations
+### Aggregate view
 
 ```sql
-CREATE OR ALTER VIEW dbo.vw_storeEmployeeCount (storeName, employeeCount) AS
-SELECT s.Name, e.c
-FROM (
-    SELECT S_ID, COUNT(*) AS c
-    FROM dbo.Employee
-    GROUP BY S_ID
-) AS e
-INNER JOIN dbo.Store AS s
-    ON e.S_ID = s.ID;
+DROP VIEW IF EXISTS dbo.vwStoreEmployeeCount;
+GO
+
+CREATE VIEW dbo.vwStoreEmployeeCount
+AS
+SELECT
+    s.Name AS StoreName,
+    COUNT(e.ID) AS EmployeeCount
+FROM dbo.Store AS s
+LEFT JOIN dbo.Employee AS e
+    ON s.ID = e.S_ID
+GROUP BY s.Name;
 GO
 ```
 
-#### Altered view with `HAVING`
+### Altered view with `HAVING`
 
 ```sql
-ALTER VIEW dbo.vw_storeEmployeeCount AS
-SELECT s.Name, e.c
-FROM (
-    SELECT S_ID, COUNT(*) AS c
-    FROM dbo.Employee
-    GROUP BY S_ID
-    HAVING COUNT(*) > 1
-) AS e
-INNER JOIN dbo.Store AS s
-    ON e.S_ID = s.ID;
+ALTER VIEW dbo.vwStoreEmployeeCount
+AS
+SELECT
+    s.Name AS StoreName,
+    COUNT(e.ID) AS EmployeeCount
+FROM dbo.Store AS s
+LEFT JOIN dbo.Employee AS e
+    ON s.ID = e.S_ID
+GROUP BY s.Name
+HAVING COUNT(e.ID) > 1;
 GO
 ```
 
-#### View with `WITH ENCRYPTION`
+### View with `WITH ENCRYPTION`
 
 ```sql
+DROP VIEW IF EXISTS dbo.vwStoreName;
+GO
+
 CREATE VIEW dbo.vwStoreName
 WITH ENCRYPTION
 AS
@@ -474,47 +637,56 @@ FROM dbo.Store;
 GO
 ```
 
-`WITH ENCRYPTION` on a view encrypts the stored definition entries in compatibility metadata and prevents the view from being published as part of SQL Server replication. Treat this as **definition obfuscation**, not as a substitute for real data encryption or access control. That interpretation follows directly from the documented scope of `WITH ENCRYPTION` versus SQL Server’s actual encryption features. citeturn9view7turn2search5
+## Stored Procedures
 
-If you want stronger dependency safety instead of obfuscation, consider `SCHEMABINDING`. When a view is schema-bound, SQL Server blocks changes to referenced base objects that would invalidate the view definition. citeturn18view0
+Stored procedures package reusable logic and can accept input parameters, output parameters, and error-handling logic.
 
-### Stored Procedures
-
-#### Simple procedure
+### Simple procedure
 
 ```sql
-CREATE OR ALTER PROCEDURE dbo.GetAllProducts
+DROP PROCEDURE IF EXISTS dbo.GetAllProducts;
+GO
+
+CREATE PROCEDURE dbo.GetAllProducts
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT *
-    FROM dbo.Product;
+    SELECT ID, Name, Price
+    FROM dbo.Product
+    ORDER BY Name;
 END;
 GO
 ```
 
-#### Procedure with input parameters
+### Procedure with input parameters
 
 ```sql
-CREATE OR ALTER PROCEDURE dbo.GetProductsByPriceRange
+DROP PROCEDURE IF EXISTS dbo.GetProductsByPriceRange;
+GO
+
+CREATE PROCEDURE dbo.GetProductsByPriceRange
     @MinPrice DECIMAL(10,2),
     @MaxPrice DECIMAL(10,2)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT *
+    SELECT ID, Name, Price
     FROM dbo.Product
-    WHERE Price BETWEEN @MinPrice AND @MaxPrice;
+    WHERE Price BETWEEN @MinPrice AND @MaxPrice
+    ORDER BY Price;
 END;
 GO
 ```
 
-#### Procedure with output parameter
+### Procedure with output parameter
 
 ```sql
-CREATE OR ALTER PROCEDURE dbo.GetProductCount
+DROP PROCEDURE IF EXISTS dbo.GetProductCount;
+GO
+
+CREATE PROCEDURE dbo.GetProductCount
     @Count INT OUTPUT
 AS
 BEGIN
@@ -526,130 +698,123 @@ END;
 GO
 ```
 
-Example execution:
+Usage:
 
 ```sql
-DECLARE @Count INT;
-EXEC dbo.GetProductCount @Count OUTPUT;
-SELECT @Count AS ProductCount;
+DECLARE @ProductCount INT;
+
+EXEC dbo.GetProductCount @Count = @ProductCount OUTPUT;
+
+SELECT @ProductCount AS ProductCount;
 ```
 
-#### Optional-parameter procedure from the original notes
+### Optional-parameter procedure
+
+The original Persian tutorial used `CategoryID`, but the current schema does not define that column.  
+This runnable version preserves the optional-parameter idea while matching the actual schema.
 
 ```sql
-CREATE OR ALTER PROCEDURE dbo.GetProductsByCategory
-    @CategoryID INT = NULL
+DROP PROCEDURE IF EXISTS dbo.GetProductsByStoreOptional;
+GO
+
+CREATE PROCEDURE dbo.GetProductsByStoreOptional
+    @StoreID INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF @CategoryID IS NULL
-        SELECT * FROM dbo.Product;
+    IF @StoreID IS NULL
+    BEGIN
+        SELECT
+            s.Name AS StoreName,
+            p.Name AS ProductName,
+            p.Price,
+            sp.Amount
+        FROM dbo.StoreProduct AS sp
+        INNER JOIN dbo.Store AS s
+            ON sp.S_ID = s.ID
+        INNER JOIN dbo.Product AS p
+            ON sp.P_ID = p.ID
+        ORDER BY s.Name, p.Name;
+    END
     ELSE
-        SELECT * FROM dbo.Product WHERE CategoryID = @CategoryID;
+    BEGIN
+        SELECT
+            s.Name AS StoreName,
+            p.Name AS ProductName,
+            p.Price,
+            sp.Amount
+        FROM dbo.StoreProduct AS sp
+        INNER JOIN dbo.Store AS s
+            ON sp.S_ID = s.ID
+        INNER JOIN dbo.Product AS p
+            ON sp.P_ID = p.ID
+        WHERE sp.S_ID = @StoreID
+        ORDER BY p.Name;
+    END
 END;
 GO
 ```
 
-> [!WARNING]
-> This procedure is preserved because it existed in the original tutorial, but it is **not runnable against the current schema**: the `Product` table in the original file has no `CategoryID` column. SQL Server defers some object-resolution checks for procedures until execution, so a stored procedure can appear valid at creation time and still fail when run. To make this example real, add a category table and a `CategoryID` foreign key to `Product`, or rewrite the procedure around an existing column. fileciteturn0file0L7-L13 fileciteturn0file0L339-L349 citeturn5search0
-
-#### Procedure with guarded error handling
-
-Microsoft recommends `THROW` for new applications instead of `RAISERROR`, and the official procedure examples also place `SET NOCOUNT ON` immediately after `AS`. The procedure below keeps the original intent but uses modern error handling. citeturn9view16turn20view3turn3search19
+### Procedure with guarded error handling
 
 ```sql
-CREATE OR ALTER PROCEDURE dbo.UpdateProductPrice
+DROP PROCEDURE IF EXISTS dbo.UpdateProductPrice;
+GO
+
+CREATE PROCEDURE dbo.UpdateProductPrice
     @ProductID INT,
     @NewPrice DECIMAL(10,2)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF @NewPrice <= 0
-        THROW 50001, N'Price must be greater than 0.', 1;
-
     BEGIN TRY
+        IF @NewPrice <= 0
+        BEGIN
+            THROW 50001, N'Price must be greater than 0.', 1;
+        END;
+
         UPDATE dbo.Product
         SET Price = @NewPrice
         WHERE ID = @ProductID;
 
         IF @@ROWCOUNT = 0
+        BEGIN
             THROW 50002, N'No product was updated. Check ProductID.', 1;
+        END;
 
-        SELECT N'Price updated successfully' AS Result;
+        SELECT N'Price updated successfully.' AS Result;
     END TRY
     BEGIN CATCH
-        THROW;
+        SELECT
+            ERROR_NUMBER() AS ErrorNumber,
+            ERROR_MESSAGE() AS ErrorMessage,
+            ERROR_LINE() AS ErrorLine;
     END CATCH
 END;
 GO
 ```
 
-### Metadata and System Variables
+## Functions
 
-The original metadata section used `sys.objects` and `sys.syscomments`. `sys.objects` is still useful for schema-scoped objects such as tables, views, procedures, and functions, but Microsoft notes that it does **not** show DDL triggers because they are not schema-scoped. For source text, Microsoft recommends catalog views such as `sys.sql_modules` and the `OBJECT_DEFINITION` function rather than `sys.syscomments`, which is a compatibility view Microsoft says not to use for new development. fileciteturn0file0L377-L402 citeturn14view3turn9view9turn9view10turn9view11
+Functions let you encapsulate reusable logic that returns either a scalar value or a rowset.
 
-#### `@@ROWCOUNT`
-
-The original file showed:
+### Scalar function: calculate tax
 
 ```sql
-SELECT @@ROWCOUNT;
-PRINT @@ROWCOUNT;
-```
+DROP FUNCTION IF EXISTS dbo.CalculateTax;
+GO
 
-That pattern is misleading. `@@ROWCOUNT` is updated by later statements too, and Microsoft documents that statements such as `PRINT` reset it to `0`, while statements like `SELECT` can also change the value. Capture it immediately after the statement you care about. fileciteturn0file0L377-L385 citeturn14view1
-
-Preferred pattern:
-
-```sql
-UPDATE dbo.Product
-SET Price = Price + 1
-WHERE ID = 1;
-
-DECLARE @RowsAffected INT = @@ROWCOUNT;
-SELECT @RowsAffected AS RowsAffected;
-```
-
-#### Catalog views
-
-```sql
-SELECT * FROM sys.objects;
-SELECT DISTINCT type, type_desc FROM sys.objects;
-SELECT * FROM sys.objects WHERE type = 'U'; -- Tables
-SELECT * FROM sys.objects WHERE type = 'V'; -- Views
-SELECT * FROM sys.triggers;                 -- DML and DDL triggers
-```
-
-#### View or module definition
-
-```sql
-SELECT sm.definition
-FROM sys.sql_modules AS sm
-WHERE sm.object_id = OBJECT_ID(N'dbo.vwEmployee');
-
-SELECT OBJECT_DEFINITION(OBJECT_ID(N'dbo.vwEmployee')) AS ViewDefinition;
-```
-
-## Functions, Triggers, and Cursors
-
-The original tutorial already covered scalar functions, table-valued functions, multi-statement table-valued functions, triggers, and cursors. This section keeps that learning path intact, but updates the code for consistency, safety notes, and correct SQL Server behavior. fileciteturn0file0L406-L780
-
-### Functions
-
-SQL Server user-defined functions can return a scalar value, an inline table, or a multi-statement table variable. SQL Server also supports `CREATE OR ALTER FUNCTION` from SQL Server 2016 SP1 onward. If you want the database engine to protect referenced dependencies, `SCHEMABINDING` is available for functions as well. citeturn9view5turn17view1
-
-#### Scalar function: calculate tax
-
-```sql
-CREATE OR ALTER FUNCTION dbo.CalculateTax (@price DECIMAL(10,2))
+CREATE FUNCTION dbo.CalculateTax(@Price DECIMAL(10,2))
 RETURNS DECIMAL(10,2)
 AS
 BEGIN
-    DECLARE @tax DECIMAL(10,2);
-    SET @tax = @price * 0.09;
-    RETURN @tax;
+    DECLARE @Tax DECIMAL(10,2);
+
+    SET @Tax = @Price * 0.09;
+
+    RETURN @Tax;
 END;
 GO
 ```
@@ -665,20 +830,23 @@ SELECT
 FROM dbo.Product;
 ```
 
-#### Scalar function: employee count by store
+### Scalar function: employee count by store
 
 ```sql
-CREATE OR ALTER FUNCTION dbo.GetEmployeeCount (@storeID INT)
+DROP FUNCTION IF EXISTS dbo.GetEmployeeCount;
+GO
+
+CREATE FUNCTION dbo.GetEmployeeCount(@StoreID INT)
 RETURNS INT
 AS
 BEGIN
-    DECLARE @count INT;
+    DECLARE @Count INT;
 
-    SELECT @count = COUNT(*)
+    SELECT @Count = COUNT(*)
     FROM dbo.Employee
-    WHERE S_ID = @storeID;
+    WHERE S_ID = @StoreID;
 
-    RETURN @count;
+    RETURN @Count;
 END;
 GO
 ```
@@ -692,10 +860,13 @@ SELECT
 FROM dbo.Store;
 ```
 
-#### Inline table-valued function: products by store
+### Inline table-valued function: store products
 
 ```sql
-CREATE OR ALTER FUNCTION dbo.GetStoreProducts (@storeID INT)
+DROP FUNCTION IF EXISTS dbo.GetStoreProducts;
+GO
+
+CREATE FUNCTION dbo.GetStoreProducts(@StoreID INT)
 RETURNS TABLE
 AS
 RETURN
@@ -707,7 +878,7 @@ RETURN
     FROM dbo.StoreProduct AS sp
     INNER JOIN dbo.Product AS p
         ON sp.P_ID = p.ID
-    WHERE sp.S_ID = @storeID
+    WHERE sp.S_ID = @StoreID
 );
 GO
 ```
@@ -719,10 +890,13 @@ SELECT *
 FROM dbo.GetStoreProducts(1);
 ```
 
-#### Inline table-valued function: low stock
+### Inline table-valued function: low stock products
 
 ```sql
-CREATE OR ALTER FUNCTION dbo.GetLowStockProducts (@threshold INT)
+DROP FUNCTION IF EXISTS dbo.GetLowStockProducts;
+GO
+
+CREATE FUNCTION dbo.GetLowStockProducts(@Threshold INT)
 RETURNS TABLE
 AS
 RETURN
@@ -736,7 +910,7 @@ RETURN
         ON sp.S_ID = s.ID
     INNER JOIN dbo.Product AS p
         ON sp.P_ID = p.ID
-    WHERE sp.Amount < @threshold
+    WHERE sp.Amount < @Threshold
 );
 GO
 ```
@@ -745,14 +919,17 @@ Usage:
 
 ```sql
 SELECT *
-FROM dbo.GetLowStockProducts(10);
+FROM dbo.GetLowStockProducts(100);
 ```
 
-#### Multi-statement table-valued function: store summary
+### Multi-statement table-valued function: store summary by chain
 
 ```sql
-CREATE OR ALTER FUNCTION dbo.GetStoreSummary (@chainID INT)
-RETURNS @result TABLE
+DROP FUNCTION IF EXISTS dbo.GetStoreSummary;
+GO
+
+CREATE FUNCTION dbo.GetStoreSummary(@ChainID INT)
+RETURNS @Result TABLE
 (
     StoreName NVARCHAR(100),
     City NVARCHAR(100),
@@ -762,24 +939,29 @@ RETURNS @result TABLE
 )
 AS
 BEGIN
-    INSERT INTO @result
+    INSERT INTO @Result
     SELECT
         s.Name AS StoreName,
         s.City,
-        (SELECT COUNT(*) FROM dbo.Employee AS e WHERE e.S_ID = s.ID) AS EmployeeCount,
-        (SELECT COUNT(*) FROM dbo.StoreProduct AS sp WHERE sp.S_ID = s.ID) AS ProductCount,
-        ISNULL(
-            (
-                SELECT SUM(p.Price * sp.Amount)
-                FROM dbo.StoreProduct AS sp
-                INNER JOIN dbo.Product AS p
-                    ON sp.P_ID = p.ID
-                WHERE sp.S_ID = s.ID
-            ),
-            0
+        (
+            SELECT COUNT(*)
+            FROM dbo.Employee AS e
+            WHERE e.S_ID = s.ID
+        ) AS EmployeeCount,
+        (
+            SELECT COUNT(*)
+            FROM dbo.StoreProduct AS sp
+            WHERE sp.S_ID = s.ID
+        ) AS ProductCount,
+        (
+            SELECT SUM(p.Price * sp.Amount)
+            FROM dbo.StoreProduct AS sp
+            INNER JOIN dbo.Product AS p
+                ON sp.P_ID = p.ID
+            WHERE sp.S_ID = s.ID
         ) AS TotalInventoryValue
     FROM dbo.Store AS s
-    WHERE s.C_ID = @chainID;
+    WHERE s.C_ID = @ChainID;
 
     RETURN;
 END;
@@ -793,133 +975,1163 @@ SELECT *
 FROM dbo.GetStoreSummary(1);
 ```
 
-#### System function examples preserved from the original notes
+## Triggers
+
+Triggers are special stored procedures that run automatically in response to events.
+
+### Warning
+
+The trigger examples below are included for education, not as general recommendations.
+
+### DDL trigger at database scope
 
 ```sql
-SELECT AVG(Salary) AS AvgSalary
-FROM dbo.Employee
-WHERE S_ID = 1;
+DROP TRIGGER IF EXISTS trg_BlockTableChanges ON DATABASE;
+GO
 
-SELECT UPPER(Name)
-FROM dbo.Product;
-
-SELECT Name, LEN(Name) AS NameLength
-FROM dbo.Store;
-```
-
-### Triggers
-
-#### Database-level DDL trigger
-
-The original file created a database-level trigger that blocks `CREATE_TABLE`, `DROP_TABLE`, and `ALTER_TABLE`. Microsoft documents that DDL triggers fire **after** the DDL statement and cannot be `INSTEAD OF` triggers. This makes them powerful, but also potentially disruptive. fileciteturn0file0L588-L597 citeturn9view15
-
-```sql
-CREATE OR ALTER TRIGGER tr_blickcreate
+CREATE TRIGGER trg_BlockTableChanges
 ON DATABASE
-FOR CREATE_TABLE, DROP_TABLE, ALTER_TABLE
+FOR CREATE_TABLE, ALTER_TABLE, DROP_TABLE
 AS
 BEGIN
+    SET NOCOUNT ON;
+
+    PRINT N'Schema changes are blocked by trg_BlockTableChanges.';
     ROLLBACK TRANSACTION;
-    THROW 50010, N'Schema changes are blocked in this demo database.', 1;
 END;
 GO
 ```
 
-If you previously disabled it and want it active again:
+### DML trigger: block direct inserts into `Product`
 
 ```sql
-ENABLE TRIGGER tr_blickcreate ON DATABASE;
+DROP TRIGGER IF EXISTS dbo.trg_Product_NoDirectInsert;
 GO
-```
 
-> [!WARNING]
-> This trigger is **demo-only**. In a shared or production database, it can stop legitimate schema work. Microsoft also warns that both DML and DDL triggers can be exploited if trigger code is allowed to run under escalated privileges or is not well governed. citeturn16view0
-
-#### Table-level `INSTEAD OF INSERT` trigger
-
-The original tutorial used a table-level trigger on `Product` that prints a message and suppresses the normal insert. That is a valid demonstration of `INSTEAD OF`, and Microsoft documents that `INSTEAD OF` triggers override the normal action of the statement and are often used when custom validation or view-updatability logic is needed. There can be only one `INSTEAD OF INSERT` trigger per table or view. fileciteturn0file0L612-L621 citeturn15view0
-
-```sql
-CREATE OR ALTER TRIGGER dbo.tr_notInsert
+CREATE TRIGGER dbo.trg_Product_NoDirectInsert
 ON dbo.Product
 INSTEAD OF INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
-    PRINT N'Insert blocked by demo trigger dbo.tr_notInsert.';
+
+    THROW 50020, N'Direct inserts into dbo.Product are blocked by the demo trigger.', 1;
 END;
 GO
 ```
 
-#### Disable and enable the trigger
-
-Triggers are enabled by default when created. They can be disabled without being dropped, then re-enabled later. citeturn9view8turn2search4
+### Disable and enable triggers
 
 ```sql
-DISABLE TRIGGER dbo.tr_notInsert ON dbo.Product;
-ENABLE TRIGGER dbo.tr_notInsert ON dbo.Product;
+DISABLE TRIGGER dbo.trg_Product_NoDirectInsert ON dbo.Product;
+ENABLE TRIGGER dbo.trg_Product_NoDirectInsert ON dbo.Product;
+
+DISABLE TRIGGER trg_BlockTableChanges ON DATABASE;
+ENABLE TRIGGER trg_BlockTableChanges ON DATABASE;
 ```
 
-#### Test insert for the trigger
-
-The original trigger test omitted a column list even though `Product` has an identity column. The corrected test should specify only the non-identity columns. If the `INSTEAD OF INSERT` trigger is enabled, the row is **not** inserted. If the trigger is disabled, the row is inserted normally. fileciteturn0file0L7-L13 fileciteturn0file0L648-L653 citeturn7search0turn15view0
+### Trigger test
 
 ```sql
 INSERT INTO dbo.Product (Name, Price)
-VALUES (N'test', 60000);
+VALUES (N'Test Product', 9.99);
 ```
 
-#### Trigger notes
+If the demo insert trigger is enabled, this insert will fail intentionally.
 
-For real DML validation logic, use the `inserted` and `deleted` tables rather than assuming a single-row operation. Microsoft explicitly documents those pseudo-tables for comparing before-and-after states, validating logic, or updating underlying base tables for views. Microsoft also recommends rowset-based logic rather than cursors inside triggers when multiple rows might be affected. citeturn9view14turn19search15
+## Cursor
 
-### Cursors
+A cursor processes rows one at a time.  
+That can be useful for some procedural tasks, but in most reporting and data-processing scenarios, a set-based query is simpler and faster.
 
-Cursors are preserved here because they were part of the original notes, but the revised example uses a decimal variable for salary so the variable type matches the actual table definition. Microsoft documents the cursor lifecycle clearly: `DECLARE CURSOR` defines it, `OPEN` populates the result set, `FETCH` retrieves rows, `CLOSE` releases the current result set, and `DEALLOCATE` frees the cursor resources. Microsoft also describes cursors as a mechanism for working with one row or a small block of rows at a time. fileciteturn0file0L682-L780 citeturn9view12turn21search1
-
-#### General cursor syntax from the original tutorial
-
-```sql
-DECLARE cursor_name CURSOR
-[LOCAL|GLOBAL]
-[FORWARD_ONLY|SCROLL]
-[STATIC|KEYSET|DYNAMIC|FAST_FORWARD]
-[READ_ONLY|SCROLL_LOCKS|OPTIMISTIC]
-[TYPE_WARNING]
-FOR select_statement
-[FOR UPDATE [OF column_name [,...n]]];
-```
-
-#### Corrected cursor example
+### Cursor example
 
 ```sql
 DECLARE @ID INT;
 DECLARE @Salary DECIMAL(10,2);
-DECLARE @SumSalary DECIMAL(18,2) = 0;
+DECLARE @TotalSalary DECIMAL(18,2);
 
-DECLARE emp_cur CURSOR LOCAL FAST_FORWARD
+SET @TotalSalary = 0;
+
+DECLARE emp_cur CURSOR FAST_FORWARD
 FOR
 SELECT ID, Salary
-FROM dbo.Employee;
+FROM dbo.Employee
+ORDER BY ID;
 
 OPEN emp_cur;
 
-FETCH NEXT FROM emp_cur INTO @ID, @Salary;
+FETCH NEXT FROM emp_cur
+INTO @ID, @Salary;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    SET @SumSalary = @SumSalary + @Salary;
+    SET @TotalSalary = @TotalSalary + @Salary;
 
-    FETCH NEXT FROM emp_cur INTO @ID, @Salary;
+    FETCH NEXT FROM emp_cur
+    INTO @ID, @Salary;
 END;
 
 CLOSE emp_cur;
 DEALLOCATE emp_cur;
 
-SELECT @SumSalary AS TotalSalary;
+SELECT @TotalSalary AS CursorTotalSalary;
+```
 
-SELECT SUM(Salary) AS TotalSalary_SetBased
+### Set-based alternative
+
+```sql
+SELECT SUM(Salary) AS SetBasedTotalSalary
 FROM dbo.Employee;
 ```
 
-The set-based `SUM(Salary)` version is the preferred solution for this specific problem, but the cursor remains useful as a teaching tool for row-by-row processing mechanics, especially when you need procedural handling that is difficult to express in a single relational statement. citeturn9view12turn21search1
+## Transactions and Error Handling
+
+Transactions group multiple changes into one logical unit.
+
+If every statement succeeds, you can commit the transaction.  
+If something fails, you can roll it back.
+
+### Preview-safe transaction example
+
+This version rolls back intentionally, so it is safe to run as a demo.
+
+```sql
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    UPDATE dbo.Product
+    SET Price = Price + 0.25
+    WHERE ID = 1;
+
+    UPDATE dbo.StoreProduct
+    SET Amount = Amount - 5
+    WHERE S_ID = 1
+      AND P_ID = 1
+      AND Amount >= 5;
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        THROW 50030, N'Inventory row was not updated. Check stock or keys.', 1;
+    END;
+
+    SELECT
+        p.Name,
+        p.Price,
+        sp.Amount
+    FROM dbo.Product AS p
+    INNER JOIN dbo.StoreProduct AS sp
+        ON p.ID = sp.P_ID
+    WHERE p.ID = 1
+      AND sp.S_ID = 1;
+
+    ROLLBACK TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF XACT_STATE() <> 0
+    BEGIN
+        ROLLBACK TRANSACTION;
+    END;
+
+    SELECT
+        ERROR_NUMBER() AS ErrorNumber,
+        ERROR_MESSAGE() AS ErrorMessage,
+        ERROR_LINE() AS ErrorLine;
+END CATCH;
+```
+
+## Indexes
+
+Indexes can speed up joins, filters, and sorts.
+
+### Recommended nonclustered indexes
+
+```sql
+CREATE NONCLUSTERED INDEX IX_Employee_S_ID
+ON dbo.Employee (S_ID)
+INCLUDE (Salary, Name);
+GO
+
+CREATE NONCLUSTERED INDEX IX_Store_C_ID
+ON dbo.Store (C_ID)
+INCLUDE (Name, City);
+GO
+
+CREATE NONCLUSTERED INDEX IX_StoreProduct_SID_PID
+ON dbo.StoreProduct (S_ID, P_ID)
+INCLUDE (Amount);
+GO
+
+CREATE NONCLUSTERED INDEX IX_Product_Name
+ON dbo.Product (Name);
+GO
+```
+
+## Metadata and Object Inspection
+
+System catalog views help you understand what exists in the database and how objects were defined.
+
+### List objects
+
+```sql
+SELECT name, type, type_desc
+FROM sys.objects
+ORDER BY type, name;
+```
+
+### Filter tables and views
+
+```sql
+SELECT name, type_desc
+FROM sys.objects
+WHERE type = 'U';
+
+SELECT name, type_desc
+FROM sys.objects
+WHERE type = 'V';
+```
+
+### Triggers
+
+```sql
+SELECT name, parent_class_desc, is_disabled
+FROM sys.triggers;
+```
+
+### Module definitions
+
+```sql
+SELECT sm.definition
+FROM sys.sql_modules AS sm
+WHERE sm.object_id = OBJECT_ID(N'dbo.vwEmployee');
+
+SELECT OBJECT_DEFINITION(OBJECT_ID(N'dbo.vwEmployee')) AS ObjectDefinition;
+
+EXEC sp_helptext N'dbo.vwEmployee';
+```
+
+### `@@ROWCOUNT`
+
+`@@ROWCOUNT` changes as subsequent statements run, so capture it immediately after the statement you care about.
+
+```sql
+UPDATE dbo.Product
+SET Price = Price + 1
+WHERE ID = 1;
+
+SELECT @@ROWCOUNT AS AffectedRows;
+```
+
+## Testing Checklist
+
+| Step | Script | Safe by default | Notes |
+|---|---|---:|---|
+| 1 | `scripts/00-create-database.sql` | Yes | Creates database if missing |
+| 2 | `scripts/01-create-tables.sql` | Yes | Rebuilds schema cleanly |
+| 3 | `scripts/02-seed-data.sql` | Yes | Loads sample data |
+| 4 | `scripts/03-basic-selects.sql` | Yes | Read-only |
+| 5 | `scripts/04-joins.sql` | Yes | Read-only |
+| 6 | `scripts/05-views.sql` | Yes | `WITH ENCRYPTION` is optional |
+| 7 | `scripts/06-stored-procedures.sql` | Yes | Runnable examples |
+| 8 | `scripts/07-functions.sql` | Yes | Runnable examples |
+| 9 | `scripts/08-metadata.sql` | Yes | Read-only inspection |
+| 10 | `scripts/09-triggers-demo.sql` | No | Demo only; leaves triggers disabled by default |
+| 11 | `scripts/10-cursors-demo.sql` | Yes | Educational only |
+| 12 | `scripts/11-transactions-demo.sql` | Yes | Rolls back intentionally |
+| 13 | `scripts/12-indexes.sql` | Yes | Adds supporting indexes |
+
+## Best Practices
+
+- Use schema-qualified names such as `dbo.Product`
+- Prefer `DECIMAL` for financial values
+- Use `NVARCHAR` for text when multilingual support matters
+- Prefix Unicode string literals with `N`
+- Name your constraints explicitly
+- Add `CHECK` constraints for obvious business rules
+- Use `UNIQUE` constraints where duplicate values are invalid
+- Prefer set-based SQL over cursors when possible
+- Keep dangerous trigger examples clearly isolated from safe scripts
+- Use `sys.sql_modules` and `OBJECT_DEFINITION` instead of legacy compatibility views for new development
+````
+
+## Execution-ready SQL Scripts
+
+The standalone scripts below are designed to be executed in order. They use documented SQL Server 2016+ `DROP ... IF EXISTS` patterns where available, and they are split into separate batches so that module-creation statements satisfy SQL Server’s batch rules. Microsoft’s documentation also confirms that `WITH ENCRYPTION` on views only obscures the stored definition metadata, that DDL triggers can roll back DDL operations, and that trigger logic should be written with rowset-based thinking rather than cursor assumptions. citeturn14view0turn7search0turn7search2turn17view0turn9search1turn9search2turn9search3turn9search9turn4search3turn10search0turn16search2
+
+### `scripts/00-create-database.sql`
+
+```sql
+USE master;
+GO
+
+IF DB_ID(N'SQLServerTutorialDB') IS NULL
+BEGIN
+    CREATE DATABASE SQLServerTutorialDB;
+END;
+GO
+```
+
+### `scripts/01-create-tables.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+IF OBJECT_ID(N'dbo.StoreProduct', N'U') IS NOT NULL DROP TABLE dbo.StoreProduct;
+IF OBJECT_ID(N'dbo.Employee', N'U') IS NOT NULL DROP TABLE dbo.Employee;
+IF OBJECT_ID(N'dbo.Store', N'U') IS NOT NULL DROP TABLE dbo.Store;
+IF OBJECT_ID(N'dbo.Product', N'U') IS NOT NULL DROP TABLE dbo.Product;
+IF OBJECT_ID(N'dbo.Chain_Store', N'U') IS NOT NULL DROP TABLE dbo.Chain_Store;
+GO
+
+CREATE TABLE dbo.Chain_Store
+(
+    ID INT IDENTITY(1,1) CONSTRAINT PK_Chain_Store PRIMARY KEY,
+    Name NVARCHAR(100) NOT NULL CONSTRAINT UQ_Chain_Store_Name UNIQUE
+);
+GO
+
+CREATE TABLE dbo.Product
+(
+    ID INT IDENTITY(1,1) CONSTRAINT PK_Product PRIMARY KEY,
+    Name NVARCHAR(100) NOT NULL,
+    Price DECIMAL(10,2) NOT NULL,
+    CONSTRAINT CK_Product_Price CHECK (Price > 0)
+);
+GO
+
+CREATE TABLE dbo.Store
+(
+    ID INT IDENTITY(1,1) CONSTRAINT PK_Store PRIMARY KEY,
+    Name NVARCHAR(100) NOT NULL,
+    Zone TINYINT NOT NULL,
+    City NVARCHAR(100) NOT NULL,
+    Address NVARCHAR(200) NOT NULL,
+    C_ID INT NOT NULL,
+    CONSTRAINT FK_Store_Chain_Store FOREIGN KEY (C_ID) REFERENCES dbo.Chain_Store(ID),
+    CONSTRAINT CK_Store_Zone CHECK (Zone BETWEEN 1 AND 20)
+);
+GO
+
+CREATE TABLE dbo.Employee
+(
+    ID INT IDENTITY(1,1) CONSTRAINT PK_Employee PRIMARY KEY,
+    Name NVARCHAR(100) NOT NULL,
+    Salary DECIMAL(10,2) NOT NULL,
+    S_ID INT NOT NULL,
+    CONSTRAINT FK_Employee_Store FOREIGN KEY (S_ID) REFERENCES dbo.Store(ID),
+    CONSTRAINT CK_Employee_Salary CHECK (Salary > 0)
+);
+GO
+
+CREATE TABLE dbo.StoreProduct
+(
+    ID INT IDENTITY(1,1) CONSTRAINT PK_StoreProduct PRIMARY KEY,
+    S_ID INT NOT NULL,
+    P_ID INT NOT NULL,
+    Amount INT NOT NULL,
+    CONSTRAINT FK_StoreProduct_Store FOREIGN KEY (S_ID) REFERENCES dbo.Store(ID),
+    CONSTRAINT FK_StoreProduct_Product FOREIGN KEY (P_ID) REFERENCES dbo.Product(ID),
+    CONSTRAINT CK_StoreProduct_Amount CHECK (Amount >= 0),
+    CONSTRAINT UQ_StoreProduct_Store_Product UNIQUE (S_ID, P_ID)
+);
+GO
+```
+
+### `scripts/02-seed-data.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+DELETE FROM dbo.StoreProduct;
+DELETE FROM dbo.Employee;
+DELETE FROM dbo.Store;
+DELETE FROM dbo.Product;
+DELETE FROM dbo.Chain_Store;
+GO
+
+DBCC CHECKIDENT ('dbo.StoreProduct', RESEED, 0);
+DBCC CHECKIDENT ('dbo.Employee', RESEED, 0);
+DBCC CHECKIDENT ('dbo.Store', RESEED, 0);
+DBCC CHECKIDENT ('dbo.Product', RESEED, 0);
+DBCC CHECKIDENT ('dbo.Chain_Store', RESEED, 0);
+GO
+
+INSERT INTO dbo.Chain_Store (Name)
+VALUES
+    (N'NorthMart'),
+    (N'HyperStar'),
+    (N'FreshChoice'),
+    (N'JumboMart');
+GO
+
+INSERT INTO dbo.Product (Name, Price)
+VALUES
+    (N'Whole Milk', 4.50),
+    (N'Family Soda', 1.75),
+    (N'Vegetable Oil', 8.90),
+    (N'Basmati Rice', 18.50),
+    (N'Pasta', 2.40),
+    (N'Low-Fat Milk', 4.20),
+    (N'Eggs', 5.10),
+    (N'Packaged Chicken', 12.75);
+GO
+
+INSERT INTO dbo.Store (Name, Zone, City, Address, C_ID)
+VALUES
+    (N'NorthMart Downtown', 1, N'Toronto', N'100 King St W', 1),
+    (N'NorthMart North York', 2, N'Toronto', N'5000 Yonge St', 1),
+    (N'HyperStar Ottawa East', 3, N'Ottawa', N'200 Rideau St', 2),
+    (N'FreshChoice Vancouver Central', 4, N'Vancouver', N'880 Granville St', 3),
+    (N'JumboMart Calgary West', 5, N'Calgary', N'350 8 Ave SW', 4),
+    (N'HyperStar Montreal Laval', 1, N'Montreal', N'1200 Saint-Martin Blvd W', 2);
+GO
+
+INSERT INTO dbo.Employee (Name, Salary, S_ID)
+VALUES
+    (N'Olivia Carter', 52000.00, 1),
+    (N'Ethan Brooks', 48000.00, 1),
+    (N'Liam Turner', 56000.00, 2),
+    (N'Emma Collins', 49500.00, 3),
+    (N'Noah Bennett', 61000.00, 4),
+    (N'Ava Mitchell', 53000.00, 5),
+    (N'Mason Reed', 57500.00, 6),
+    (N'Sophia Parker', 50500.00, 2);
+GO
+
+INSERT INTO dbo.StoreProduct (S_ID, P_ID, Amount)
+VALUES
+    (1, 1, 150), (1, 2, 200), (1, 3, 100), (1, 4, 80),
+    (2, 1, 120), (2, 5, 180), (2, 6, 90), (2, 7, 110),
+    (3, 2, 160), (3, 3, 70), (3, 4, 60), (3, 8, 50),
+    (4, 1, 90),  (4, 6, 120), (4, 7, 80),  (4, 5, 150),
+    (5, 3, 110), (5, 4, 70),  (5, 8, 60),  (5, 2, 180),
+    (6, 1, 130), (6, 2, 170), (6, 5, 140), (6, 7, 100);
+GO
+```
+
+### `scripts/03-basic-selects.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+SELECT * FROM dbo.Chain_Store;
+SELECT * FROM dbo.Store;
+SELECT * FROM dbo.Employee;
+SELECT * FROM dbo.Product;
+SELECT * FROM dbo.StoreProduct;
+GO
+
+SELECT Name, Price
+FROM dbo.Product;
+GO
+
+SELECT Name, Salary
+FROM dbo.Employee
+WHERE Salary > 50000;
+GO
+
+SELECT Name, Salary
+FROM dbo.Employee
+WHERE Salary BETWEEN 50000 AND 55000;
+GO
+
+SELECT Name, Salary
+FROM dbo.Employee
+WHERE Name LIKE N'%a%';
+GO
+
+SELECT DISTINCT City
+FROM dbo.Store;
+GO
+
+SELECT Name, Price
+FROM dbo.Product
+ORDER BY Price DESC;
+GO
+
+SELECT
+    COUNT(*) AS TotalProducts,
+    MIN(Price) AS MinPrice,
+    MAX(Price) AS MaxPrice,
+    AVG(Price) AS AvgPrice,
+    SUM(Price) AS SumPrice
+FROM dbo.Product;
+GO
+
+SELECT
+    S_ID,
+    COUNT(*) AS EmployeeCount,
+    AVG(Salary) AS AvgSalary,
+    SUM(Salary) AS TotalSalary
+FROM dbo.Employee
+GROUP BY S_ID;
+GO
+
+SELECT
+    S_ID,
+    COUNT(*) AS EmployeeCount
+FROM dbo.Employee
+GROUP BY S_ID
+HAVING COUNT(*) > 1;
+GO
+
+SELECT Name, Salary
+FROM dbo.Employee
+WHERE Salary > (
+    SELECT AVG(Salary)
+    FROM dbo.Employee
+);
+GO
+
+SELECT
+    Name,
+    Salary,
+    ROW_NUMBER() OVER (ORDER BY Salary DESC) AS SalaryRank
+FROM dbo.Employee;
+GO
+```
+
+### `scripts/04-joins.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+SELECT
+    s.Name AS StoreName,
+    COUNT(e.ID) AS EmployeeCount
+FROM dbo.Store AS s
+INNER JOIN dbo.Employee AS e
+    ON s.ID = e.S_ID
+GROUP BY s.Name
+ORDER BY s.Name;
+GO
+
+SELECT
+    s.Name AS StoreName,
+    COUNT(*) AS EmployeeCount,
+    SUM(e.Salary) AS TotalPayroll
+FROM dbo.Employee AS e
+INNER JOIN dbo.Store AS s
+    ON e.S_ID = s.ID
+WHERE e.Salary > 50000
+GROUP BY s.Name
+HAVING SUM(e.Salary) > 100000
+ORDER BY TotalPayroll DESC;
+GO
+
+SELECT
+    cs.Name AS ChainName,
+    s.Name AS StoreName,
+    e.Name AS EmployeeName
+FROM dbo.Chain_Store AS cs
+INNER JOIN dbo.Store AS s
+    ON cs.ID = s.C_ID
+INNER JOIN dbo.Employee AS e
+    ON s.ID = e.S_ID
+ORDER BY ChainName, StoreName DESC, EmployeeName;
+GO
+
+SELECT
+    s.Name AS StoreName,
+    p.Name AS ProductName,
+    sp.Amount
+FROM dbo.StoreProduct AS sp
+INNER JOIN dbo.Store AS s
+    ON sp.S_ID = s.ID
+INNER JOIN dbo.Product AS p
+    ON sp.P_ID = p.ID
+ORDER BY s.Name, p.Name;
+GO
+
+SELECT
+    s.Name AS StoreName,
+    SUM(p.Price * sp.Amount) AS InventoryValue
+FROM dbo.StoreProduct AS sp
+INNER JOIN dbo.Store AS s
+    ON sp.S_ID = s.ID
+INNER JOIN dbo.Product AS p
+    ON sp.P_ID = p.ID
+GROUP BY s.Name
+ORDER BY InventoryValue DESC;
+GO
+```
+
+### `scripts/05-views.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+DROP VIEW IF EXISTS dbo.vwEmployee;
+GO
+
+CREATE VIEW dbo.vwEmployee
+AS
+SELECT
+    cs.Name AS ChainName,
+    s.Name AS StoreName,
+    e.Name AS EmployeeName,
+    e.Salary
+FROM dbo.Chain_Store AS cs
+INNER JOIN dbo.Store AS s
+    ON cs.ID = s.C_ID
+INNER JOIN dbo.Employee AS e
+    ON s.ID = e.S_ID;
+GO
+
+DROP VIEW IF EXISTS dbo.vwStoreEmployeeCount;
+GO
+
+CREATE VIEW dbo.vwStoreEmployeeCount
+AS
+SELECT
+    s.Name AS StoreName,
+    COUNT(e.ID) AS EmployeeCount
+FROM dbo.Store AS s
+LEFT JOIN dbo.Employee AS e
+    ON s.ID = e.S_ID
+GROUP BY s.Name;
+GO
+
+ALTER VIEW dbo.vwStoreEmployeeCount
+AS
+SELECT
+    s.Name AS StoreName,
+    COUNT(e.ID) AS EmployeeCount
+FROM dbo.Store AS s
+LEFT JOIN dbo.Employee AS e
+    ON s.ID = e.S_ID
+GROUP BY s.Name
+HAVING COUNT(e.ID) > 1;
+GO
+
+DROP VIEW IF EXISTS dbo.vwStoreName;
+GO
+
+CREATE VIEW dbo.vwStoreName
+WITH ENCRYPTION
+AS
+SELECT DISTINCT Name
+FROM dbo.Store;
+GO
+
+SELECT * FROM dbo.vwEmployee;
+SELECT DISTINCT EmployeeName FROM dbo.vwEmployee;
+SELECT * FROM dbo.vwStoreEmployeeCount;
+GO
+```
+
+### `scripts/06-stored-procedures.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+DROP PROCEDURE IF EXISTS dbo.GetAllProducts;
+GO
+
+CREATE PROCEDURE dbo.GetAllProducts
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT ID, Name, Price
+    FROM dbo.Product
+    ORDER BY Name;
+END;
+GO
+
+DROP PROCEDURE IF EXISTS dbo.GetProductsByPriceRange;
+GO
+
+CREATE PROCEDURE dbo.GetProductsByPriceRange
+    @MinPrice DECIMAL(10,2),
+    @MaxPrice DECIMAL(10,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT ID, Name, Price
+    FROM dbo.Product
+    WHERE Price BETWEEN @MinPrice AND @MaxPrice
+    ORDER BY Price;
+END;
+GO
+
+DROP PROCEDURE IF EXISTS dbo.GetProductCount;
+GO
+
+CREATE PROCEDURE dbo.GetProductCount
+    @Count INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT @Count = COUNT(*)
+    FROM dbo.Product;
+END;
+GO
+
+DROP PROCEDURE IF EXISTS dbo.GetProductsByStoreOptional;
+GO
+
+CREATE PROCEDURE dbo.GetProductsByStoreOptional
+    @StoreID INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @StoreID IS NULL
+    BEGIN
+        SELECT
+            s.Name AS StoreName,
+            p.Name AS ProductName,
+            p.Price,
+            sp.Amount
+        FROM dbo.StoreProduct AS sp
+        INNER JOIN dbo.Store AS s
+            ON sp.S_ID = s.ID
+        INNER JOIN dbo.Product AS p
+            ON sp.P_ID = p.ID
+        ORDER BY s.Name, p.Name;
+    END
+    ELSE
+    BEGIN
+        SELECT
+            s.Name AS StoreName,
+            p.Name AS ProductName,
+            p.Price,
+            sp.Amount
+        FROM dbo.StoreProduct AS sp
+        INNER JOIN dbo.Store AS s
+            ON sp.S_ID = s.ID
+        INNER JOIN dbo.Product AS p
+            ON sp.P_ID = p.ID
+        WHERE sp.S_ID = @StoreID
+        ORDER BY p.Name;
+    END
+END;
+GO
+
+DROP PROCEDURE IF EXISTS dbo.UpdateProductPrice;
+GO
+
+CREATE PROCEDURE dbo.UpdateProductPrice
+    @ProductID INT,
+    @NewPrice DECIMAL(10,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        IF @NewPrice <= 0
+        BEGIN
+            THROW 50001, N'Price must be greater than 0.', 1;
+        END;
+
+        UPDATE dbo.Product
+        SET Price = @NewPrice
+        WHERE ID = @ProductID;
+
+        IF @@ROWCOUNT = 0
+        BEGIN
+            THROW 50002, N'No product was updated. Check ProductID.', 1;
+        END;
+
+        SELECT N'Price updated successfully.' AS Result;
+    END TRY
+    BEGIN CATCH
+        SELECT
+            ERROR_NUMBER() AS ErrorNumber,
+            ERROR_MESSAGE() AS ErrorMessage,
+            ERROR_LINE() AS ErrorLine;
+    END CATCH
+END;
+GO
+```
+
+### `scripts/07-functions.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+DROP FUNCTION IF EXISTS dbo.CalculateTax;
+GO
+
+CREATE FUNCTION dbo.CalculateTax(@Price DECIMAL(10,2))
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+    DECLARE @Tax DECIMAL(10,2);
+
+    SET @Tax = @Price * 0.09;
+
+    RETURN @Tax;
+END;
+GO
+
+DROP FUNCTION IF EXISTS dbo.GetEmployeeCount;
+GO
+
+CREATE FUNCTION dbo.GetEmployeeCount(@StoreID INT)
+RETURNS INT
+AS
+BEGIN
+    DECLARE @Count INT;
+
+    SELECT @Count = COUNT(*)
+    FROM dbo.Employee
+    WHERE S_ID = @StoreID;
+
+    RETURN @Count;
+END;
+GO
+
+DROP FUNCTION IF EXISTS dbo.GetStoreProducts;
+GO
+
+CREATE FUNCTION dbo.GetStoreProducts(@StoreID INT)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        p.Name AS ProductName,
+        p.Price,
+        sp.Amount AS Inventory
+    FROM dbo.StoreProduct AS sp
+    INNER JOIN dbo.Product AS p
+        ON sp.P_ID = p.ID
+    WHERE sp.S_ID = @StoreID
+);
+GO
+
+DROP FUNCTION IF EXISTS dbo.GetLowStockProducts;
+GO
+
+CREATE FUNCTION dbo.GetLowStockProducts(@Threshold INT)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        s.Name AS StoreName,
+        p.Name AS ProductName,
+        sp.Amount AS CurrentStock
+    FROM dbo.StoreProduct AS sp
+    INNER JOIN dbo.Store AS s
+        ON sp.S_ID = s.ID
+    INNER JOIN dbo.Product AS p
+        ON sp.P_ID = p.ID
+    WHERE sp.Amount < @Threshold
+);
+GO
+
+DROP FUNCTION IF EXISTS dbo.GetStoreSummary;
+GO
+
+CREATE FUNCTION dbo.GetStoreSummary(@ChainID INT)
+RETURNS @Result TABLE
+(
+    StoreName NVARCHAR(100),
+    City NVARCHAR(100),
+    EmployeeCount INT,
+    ProductCount INT,
+    TotalInventoryValue DECIMAL(18,2)
+)
+AS
+BEGIN
+    INSERT INTO @Result
+    SELECT
+        s.Name AS StoreName,
+        s.City,
+        (
+            SELECT COUNT(*)
+            FROM dbo.Employee AS e
+            WHERE e.S_ID = s.ID
+        ) AS EmployeeCount,
+        (
+            SELECT COUNT(*)
+            FROM dbo.StoreProduct AS sp
+            WHERE sp.S_ID = s.ID
+        ) AS ProductCount,
+        (
+            SELECT SUM(p.Price * sp.Amount)
+            FROM dbo.StoreProduct AS sp
+            INNER JOIN dbo.Product AS p
+                ON sp.P_ID = p.ID
+            WHERE sp.S_ID = s.ID
+        ) AS TotalInventoryValue
+    FROM dbo.Store AS s
+    WHERE s.C_ID = @ChainID;
+
+    RETURN;
+END;
+GO
+```
+
+### `scripts/08-metadata.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+SELECT name, type, type_desc
+FROM sys.objects
+ORDER BY type, name;
+GO
+
+SELECT name, type_desc
+FROM sys.objects
+WHERE type = 'U';
+GO
+
+SELECT name, type_desc
+FROM sys.objects
+WHERE type = 'V';
+GO
+
+SELECT name, parent_class_desc, is_disabled
+FROM sys.triggers;
+GO
+
+SELECT sm.definition
+FROM sys.sql_modules AS sm
+WHERE sm.object_id = OBJECT_ID(N'dbo.vwEmployee');
+GO
+
+SELECT OBJECT_DEFINITION(OBJECT_ID(N'dbo.vwEmployee')) AS ObjectDefinition;
+GO
+
+EXEC sp_helptext N'dbo.vwEmployee';
+GO
+
+UPDATE dbo.Product
+SET Price = Price
+WHERE ID = 1;
+
+SELECT @@ROWCOUNT AS AffectedRows;
+GO
+```
+
+### `scripts/09-triggers-demo.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+-- Demo-only DML trigger
+DROP TRIGGER IF EXISTS dbo.trg_Product_NoDirectInsert;
+GO
+
+CREATE TRIGGER dbo.trg_Product_NoDirectInsert
+ON dbo.Product
+INSTEAD OF INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    THROW 50020, N'Direct inserts into dbo.Product are blocked by the demo trigger.', 1;
+END;
+GO
+
+-- Leave disabled by default so the demo script is safer to run.
+DISABLE TRIGGER dbo.trg_Product_NoDirectInsert ON dbo.Product;
+GO
+
+-- Demo-only DDL trigger
+DROP TRIGGER IF EXISTS trg_BlockTableChanges ON DATABASE;
+GO
+
+CREATE TRIGGER trg_BlockTableChanges
+ON DATABASE
+FOR CREATE_TABLE, ALTER_TABLE, DROP_TABLE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    PRINT N'Schema changes are blocked by trg_BlockTableChanges.';
+    ROLLBACK TRANSACTION;
+END;
+GO
+
+-- Leave disabled by default so future schema work is not blocked.
+DISABLE TRIGGER trg_BlockTableChanges ON DATABASE;
+GO
+
+-- Demo commands:
+-- ENABLE TRIGGER dbo.trg_Product_NoDirectInsert ON dbo.Product;
+-- INSERT INTO dbo.Product (Name, Price) VALUES (N'Test Product', 9.99);
+-- DISABLE TRIGGER dbo.trg_Product_NoDirectInsert ON dbo.Product;
+
+-- ENABLE TRIGGER trg_BlockTableChanges ON DATABASE;
+-- CREATE TABLE dbo.DemoBlock (ID INT);
+-- DISABLE TRIGGER trg_BlockTableChanges ON DATABASE;
+GO
+```
+
+### `scripts/10-cursors-demo.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+DECLARE @ID INT;
+DECLARE @Salary DECIMAL(10,2);
+DECLARE @TotalSalary DECIMAL(18,2);
+
+SET @TotalSalary = 0;
+
+DECLARE emp_cur CURSOR FAST_FORWARD
+FOR
+SELECT ID, Salary
+FROM dbo.Employee
+ORDER BY ID;
+
+OPEN emp_cur;
+
+FETCH NEXT FROM emp_cur
+INTO @ID, @Salary;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @TotalSalary = @TotalSalary + @Salary;
+
+    FETCH NEXT FROM emp_cur
+    INTO @ID, @Salary;
+END;
+
+CLOSE emp_cur;
+DEALLOCATE emp_cur;
+
+SELECT @TotalSalary AS CursorTotalSalary;
+GO
+
+SELECT SUM(Salary) AS SetBasedTotalSalary
+FROM dbo.Employee;
+GO
+```
+
+### `scripts/11-transactions-demo.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    UPDATE dbo.Product
+    SET Price = Price + 0.25
+    WHERE ID = 1;
+
+    UPDATE dbo.StoreProduct
+    SET Amount = Amount - 5
+    WHERE S_ID = 1
+      AND P_ID = 1
+      AND Amount >= 5;
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        THROW 50030, N'Inventory row was not updated. Check stock or keys.', 1;
+    END;
+
+    SELECT
+        p.Name,
+        p.Price,
+        sp.Amount
+    FROM dbo.Product AS p
+    INNER JOIN dbo.StoreProduct AS sp
+        ON p.ID = sp.P_ID
+    WHERE p.ID = 1
+      AND sp.S_ID = 1;
+
+    -- Preview-safe demo: undo the transaction intentionally.
+    ROLLBACK TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF XACT_STATE() <> 0
+    BEGIN
+        ROLLBACK TRANSACTION;
+    END;
+
+    SELECT
+        ERROR_NUMBER() AS ErrorNumber,
+        ERROR_MESSAGE() AS ErrorMessage,
+        ERROR_LINE() AS ErrorLine;
+END CATCH;
+GO
+```
+
+### `scripts/12-indexes.sql`
+
+```sql
+USE SQLServerTutorialDB;
+GO
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = N'IX_Employee_S_ID'
+      AND object_id = OBJECT_ID(N'dbo.Employee')
+)
+    DROP INDEX IX_Employee_S_ID ON dbo.Employee;
+GO
+
+CREATE NONCLUSTERED INDEX IX_Employee_S_ID
+ON dbo.Employee (S_ID)
+INCLUDE (Salary, Name);
+GO
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = N'IX_Store_C_ID'
+      AND object_id = OBJECT_ID(N'dbo.Store')
+)
+    DROP INDEX IX_Store_C_ID ON dbo.Store;
+GO
+
+CREATE NONCLUSTERED INDEX IX_Store_C_ID
+ON dbo.Store (C_ID)
+INCLUDE (Name, City);
+GO
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = N'IX_StoreProduct_SID_PID'
+      AND object_id = OBJECT_ID(N'dbo.StoreProduct')
+)
+    DROP INDEX IX_StoreProduct_SID_PID ON dbo.StoreProduct;
+GO
+
+CREATE NONCLUSTERED INDEX IX_StoreProduct_SID_PID
+ON dbo.StoreProduct (S_ID, P_ID)
+INCLUDE (Amount);
+GO
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = N'IX_Product_Name'
+      AND object_id = OBJECT_ID(N'dbo.Product')
+)
+    DROP INDEX IX_Product_Name ON dbo.Product;
+GO
+
+CREATE NONCLUSTERED INDEX IX_Product_Name
+ON dbo.Product (Name);
+GO
+```
+
+## Testing Checklist and Limitations
+
+For actual use, the safest execution order is: create database, create tables, seed data, run read-only query scripts, then create views, procedures, functions, and metadata examples. The transaction demo is safe because it rolls back intentionally, but the trigger script should still be treated as demonstration-only. Microsoft documents that DDL triggers can intercept and roll back table DDL, that `CREATE VIEW`/`CREATE PROCEDURE`/`CREATE TRIGGER` must be batched correctly, that `WITH ENCRYPTION` on views hides stored definition text rather than encrypting table data, and that `PRIMARY KEY` and `UNIQUE` constraints automatically create supporting indexes. citeturn10search0turn9search1turn9search2turn9search3turn4search3turn3search14
+
+The main limitation of this deliverable is environmental: I statically audited and rewrote the scripts against the documented SQL Server syntax and catalog behavior, but I did not execute them against a live SQL Server 2016/2019/2022 instance from this environment. The biggest practical version boundary is optional use of `CREATE OR ALTER`: if you later refactor the repository to use it in executable scripts, views, procedures, functions, and triggers require SQL Server 2016 SP1 or later. If you need stricter backward compatibility, keep the `DROP ... IF EXISTS` plus `CREATE ...` pattern used above. citeturn6search0turn6search1turn8search1turn8search2turn14view0turn7search0turn7search2turn17view0
