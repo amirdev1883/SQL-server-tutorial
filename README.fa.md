@@ -1,4 +1,6 @@
-# SQL-server-tutorial
+# آموزش SQL Server
+
+[English](README.md) · **فارسی**
 
 جزوه و آموزش عملی SQL Server با مثال‌های واقعی روی یک سناریوی فروشگاه زنجیره‌ای
 
@@ -7,6 +9,7 @@
 
 ## فهرست مطالب
 
+- [شروع کار](#شروع-کار)
 - [معرفی پروژه](#معرفی-پروژه)
 - [SQL چیست و SQL Server چیست](#sql-چیست-و-sql-server-چیست)
 - [اهداف آموزشی این مخزن](#اهداف-آموزشی-این-مخزن)
@@ -24,18 +27,21 @@
 - [Index و کارایی](#index-و-کارایی)
 - [بررسی آبجکت‌ها و متادیتا](#بررسی-آبجکتها-و-متادیتا)
 - [نکات مهم و بهترین‌عمل‌ها](#نکات-مهم-و-بهترینعملها)
-- [جمع‌بندی](#جمع‌بندی)
+- [جمع‌بندی](#جمعبندی)
+- [درس‌های تکمیلی و تمرین‌ها](persian/advanced.md)
 
 
-## توجه 
+## شروع کار
 
-✅ بخش 1: کدهایی که بدون خطا باید اجرا شوند
+۱. از یک نمونهٔ توسعهٔ SQL Server استفاده کنید. برای نصب یا اتصال از طریق SSMS، VS Code یا Docker، بخش [راه‌اندازی SQL Server](english/01-setup-and-design.md#connect-to-sql-server) را ببینید.
 
-⚠️ بخش 2: کدهای آموزشی که ممکن است عمداً خطا بدهند
+۲. اسکریپت بخش [ساخت دیتابیس و جداول](#اسکریپت-کامل-ساخت-دیتابیس-و-جداول) را اجرا کنید. نسخهٔ فارسی از دیتابیس تمرینی `SQLServerTutorialDB` استفاده می‌کند. بلوک‌های بعدی در توضیح هر جدول، اجزای همان اسکریپت را نشان می‌دهند.
 
-🧪 بخش 3: کدهای تست و تمرین
+۳. بلوک‌های [درج داده‌های نمونه](#درج-دادههای-نمونه) را یک بار، به ترتیب و روی جدول‌های تازه‌ساخته‌شده اجرا کنید. شناسه‌های نمونه بر اساس شروع از ۱ تنظیم شده‌اند. در پایان باید ۴ زنجیره، ۶ شعبه، ۸ محصول، ۸ کارمند و ۲۴ ردیف موجودی داشته باشید.
 
-🚫 بخش 4: کدهای خطرناک مثل DDL Trigger
+۴. مثال‌ها را در همان دیتابیس اجرا کنید. `GO` جداکنندهٔ batch در ابزارهایی مانند SSMS و `sqlcmd` است. برای اجرای نمونه‌های تراکنش، یک پنجرهٔ کوئری تازه باز کنید و ابتدا `USE SQLServerTutorialDB;` را اجرا کنید.
+
+پس از کوئری‌های پایه، با [درس‌های تکمیلی و تمرین‌ها](persian/advanced.md) سراغ CTE، تحلیل موجودی، برنامهٔ اجرا و سطح دسترسی بروید.
 
 ## معرفی پروژه
 
@@ -125,65 +131,73 @@ GO
 USE SQLServerTutorialDB;
 GO
 
--- برای اجرای مجدد اسکریپت
-IF OBJECT_ID(N'dbo.StoreProduct', N'U') IS NOT NULL DROP TABLE dbo.StoreProduct;
-IF OBJECT_ID(N'dbo.Employee', N'U') IS NOT NULL DROP TABLE dbo.Employee;
-IF OBJECT_ID(N'dbo.Store', N'U') IS NOT NULL DROP TABLE dbo.Store;
-IF OBJECT_ID(N'dbo.Product', N'U') IS NOT NULL DROP TABLE dbo.Product;
-IF OBJECT_ID(N'dbo.Chain_Store', N'U') IS NOT NULL DROP TABLE dbo.Chain_Store;
-GO
+IF EXISTS (
+    SELECT 1
+    FROM sys.tables
+    WHERE schema_id = SCHEMA_ID(N'dbo')
+      AND name IN (N'Chain_Store', N'Product', N'Store', N'Employee', N'StoreProduct')
+)
+    THROW 50000, N'جدول‌های تمرینی از قبل وجود دارند. از یک دیتابیس تمرینی خالی استفاده کنید.', 1;
 
-CREATE TABLE dbo.Chain_Store
-(
-    ID INT IDENTITY(1,1) CONSTRAINT PK_Chain_Store PRIMARY KEY,
-    Name NVARCHAR(100) NOT NULL CONSTRAINT UQ_Chain_Store_Name UNIQUE
-);
-GO
+SET XACT_ABORT ON;
+BEGIN TRY
+    BEGIN TRANSACTION;
 
-CREATE TABLE dbo.Product
-(
-    ID INT IDENTITY(1,1) CONSTRAINT PK_Product PRIMARY KEY,
-    Name NVARCHAR(100) NOT NULL,
-    Price DECIMAL(10,2) NOT NULL,
-    CONSTRAINT CK_Product_Price CHECK (Price > 0)
-);
-GO
+    CREATE TABLE dbo.Chain_Store
+    (
+        ID INT IDENTITY(1,1) CONSTRAINT PK_Chain_Store PRIMARY KEY,
+        Name NVARCHAR(100) NOT NULL CONSTRAINT UQ_Chain_Store_Name UNIQUE
+    );
 
-CREATE TABLE dbo.Store
-(
-    ID INT IDENTITY(1,1) CONSTRAINT PK_Store PRIMARY KEY,
-    Name NVARCHAR(100) NOT NULL,
-    Zone TINYINT NOT NULL,
-    City NVARCHAR(100) NOT NULL,
-    Address NVARCHAR(200) NOT NULL,
-    C_ID INT NOT NULL,
-    CONSTRAINT FK_Store_Chain_Store FOREIGN KEY (C_ID) REFERENCES dbo.Chain_Store(ID),
-    CONSTRAINT CK_Store_Zone CHECK (Zone BETWEEN 1 AND 20)
-);
-GO
+    CREATE TABLE dbo.Product
+    (
+        ID INT IDENTITY(1,1) CONSTRAINT PK_Product PRIMARY KEY,
+        Name NVARCHAR(100) NOT NULL,
+        Price DECIMAL(10,2) NOT NULL,
+        CONSTRAINT CK_Product_Price CHECK (Price > 0)
+    );
 
-CREATE TABLE dbo.Employee
-(
-    ID INT IDENTITY(1,1) CONSTRAINT PK_Employee PRIMARY KEY,
-    Name NVARCHAR(100) NOT NULL,
-    Salary DECIMAL(10,2) NOT NULL,
-    S_ID INT NOT NULL,
-    CONSTRAINT FK_Employee_Store FOREIGN KEY (S_ID) REFERENCES dbo.Store(ID),
-    CONSTRAINT CK_Employee_Salary CHECK (Salary > 0)
-);
-GO
+    CREATE TABLE dbo.Store
+    (
+        ID INT IDENTITY(1,1) CONSTRAINT PK_Store PRIMARY KEY,
+        Name NVARCHAR(100) NOT NULL,
+        Zone TINYINT NOT NULL,
+        City NVARCHAR(100) NOT NULL,
+        Address NVARCHAR(200) NOT NULL,
+        C_ID INT NOT NULL,
+        CONSTRAINT FK_Store_Chain_Store FOREIGN KEY (C_ID) REFERENCES dbo.Chain_Store(ID),
+        CONSTRAINT CK_Store_Zone CHECK (Zone BETWEEN 1 AND 20)
+    );
 
-CREATE TABLE dbo.StoreProduct
-(
-    ID INT IDENTITY(1,1) CONSTRAINT PK_StoreProduct PRIMARY KEY,
-    S_ID INT NOT NULL,
-    P_ID INT NOT NULL,
-    Amount INT NOT NULL,
-    CONSTRAINT FK_StoreProduct_Store FOREIGN KEY (S_ID) REFERENCES dbo.Store(ID),
-    CONSTRAINT FK_StoreProduct_Product FOREIGN KEY (P_ID) REFERENCES dbo.Product(ID),
-    CONSTRAINT CK_StoreProduct_Amount CHECK (Amount >= 0),
-    CONSTRAINT UQ_StoreProduct_Store_Product UNIQUE (S_ID, P_ID)
-);
+    CREATE TABLE dbo.Employee
+    (
+        ID INT IDENTITY(1,1) CONSTRAINT PK_Employee PRIMARY KEY,
+        Name NVARCHAR(100) NOT NULL,
+        Salary DECIMAL(10,2) NOT NULL,
+        S_ID INT NOT NULL,
+        CONSTRAINT FK_Employee_Store FOREIGN KEY (S_ID) REFERENCES dbo.Store(ID),
+        CONSTRAINT CK_Employee_Salary CHECK (Salary > 0)
+    );
+
+    CREATE TABLE dbo.StoreProduct
+    (
+        ID INT IDENTITY(1,1) CONSTRAINT PK_StoreProduct PRIMARY KEY,
+        S_ID INT NOT NULL,
+        P_ID INT NOT NULL,
+        Amount INT NOT NULL,
+        CONSTRAINT FK_StoreProduct_Store FOREIGN KEY (S_ID) REFERENCES dbo.Store(ID),
+        CONSTRAINT FK_StoreProduct_Product FOREIGN KEY (P_ID) REFERENCES dbo.Product(ID),
+        CONSTRAINT CK_StoreProduct_Amount CHECK (Amount >= 0),
+        CONSTRAINT UQ_StoreProduct_Store_Product UNIQUE (S_ID, P_ID)
+    );
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF XACT_STATE() <> 0
+        ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
 GO
 ```
 
@@ -527,8 +541,9 @@ WHERE Salary > (
 SELECT
     Name,
     Salary,
-    ROW_NUMBER() OVER (ORDER BY Salary DESC) AS SalaryRank
-FROM dbo.Employee;
+    ROW_NUMBER() OVER (ORDER BY Salary DESC, ID) AS SalaryRank
+FROM dbo.Employee
+ORDER BY SalaryRank;
 ```
 
 **توضیح:**  
@@ -547,7 +562,7 @@ SELECT
 FROM dbo.Store AS s
 INNER JOIN dbo.Employee AS e
     ON s.ID = e.S_ID
-GROUP BY s.Name
+GROUP BY s.ID, s.Name
 ORDER BY s.Name;
 ```
 
@@ -616,7 +631,7 @@ INNER JOIN dbo.Store AS s
     ON sp.S_ID = s.ID
 INNER JOIN dbo.Product AS p
     ON sp.P_ID = p.ID
-GROUP BY s.Name
+GROUP BY s.ID, s.Name
 ORDER BY InventoryValue DESC;
 ```
 
@@ -625,7 +640,7 @@ ORDER BY InventoryValue DESC;
 
 ## View در SQL Server
 
-`VIEW` یک جدول مجازی است که نتیجه‌ی یک کوئری را نگه می‌دارد.  
+`VIEW` تعریف یک کوئری را ذخیره می‌کند و می‌توانید نتیجهٔ آن را مانند یک جدول بخوانید.
 از Viewها برای این کارها استفاده می‌کنیم:
 
 - ساده‌تر کردن کوئری‌های پیچیده
@@ -636,7 +651,7 @@ ORDER BY InventoryValue DESC;
 ## ساخت View ساده
 
 ```sql
-CREATE VIEW dbo.vwEmployee
+CREATE OR ALTER VIEW dbo.vwEmployee
 AS
 SELECT
     cs.Name AS ChainName,
@@ -661,7 +676,7 @@ SELECT DISTINCT EmployeeName FROM dbo.vwEmployee;
 ## View با محاسبات
 
 ```sql
-CREATE VIEW dbo.vwStoreEmployeeCount
+CREATE OR ALTER VIEW dbo.vwStoreEmployeeCount
 AS
 SELECT
     s.Name AS StoreName,
@@ -669,7 +684,7 @@ SELECT
 FROM dbo.Store AS s
 LEFT JOIN dbo.Employee AS e
     ON s.ID = e.S_ID
-GROUP BY s.Name;
+GROUP BY s.ID, s.Name;
 GO
 ```
 
@@ -684,7 +699,7 @@ SELECT
 FROM dbo.Store AS s
 LEFT JOIN dbo.Employee AS e
     ON s.ID = e.S_ID
-GROUP BY s.Name
+GROUP BY s.ID, s.Name
 HAVING COUNT(e.ID) > 1;
 GO
 ```
@@ -692,7 +707,7 @@ GO
 ## View با ENCRYPTION
 
 ```sql
-CREATE VIEW dbo.vwStoreName
+CREATE OR ALTER VIEW dbo.vwStoreName
 WITH ENCRYPTION
 AS
 SELECT DISTINCT Name
@@ -827,7 +842,7 @@ BEGIN
     SET NOCOUNT ON;
 
     BEGIN TRY
-        IF @NewPrice <= 0
+        IF @NewPrice IS NULL OR @NewPrice <= 0
             THROW 50001, N'قیمت محصول باید بیشتر از صفر باشد.', 1;
 
         UPDATE dbo.Product
@@ -843,7 +858,8 @@ BEGIN
         SELECT
             ERROR_MESSAGE() AS ErrorMessage,
             ERROR_LINE() AS ErrorLine;
-    END CATCH
+        THROW;
+    END CATCH;
 END;
 GO
 ```
@@ -851,7 +867,10 @@ GO
 ### اجرا
 
 ```sql
+BEGIN TRANSACTION;
 EXEC dbo.UpdateProductPrice @ProductID = 1, @NewPrice = 49.90;
+SELECT ID, Name, Price FROM dbo.Product WHERE ID = 1;
+ROLLBACK TRANSACTION;
 ```
 
 ## Function
@@ -1052,26 +1071,26 @@ Trigger نوعی Stored Procedure ویژه است که به‌صورت خودک�
 - **DDL Trigger**: روی `CREATE`، `ALTER`، `DROP`
 - **Logon Trigger**: هنگام ورود کاربر
 
-## DML Trigger برای اعتبارسنجی قیمت
+## DML Trigger برای گزارش تغییر قیمت
 
-به‌جای اینکه فقط جلوی INSERT را با `PRINT` بگیریم، بهتر است مثال واقعی‌تری بزنیم.
+قید `CHECK` قیمت نامعتبر را قبل از اجرای تریگر `AFTER` رد می‌کند. این تریگر قیمت قبلی و جدید هر ردیف را مقایسه می‌کند و تعداد تغییرات واقعی را در بخش پیام‌ها نشان می‌دهد.
 
 ```sql
-CREATE OR ALTER TRIGGER dbo.trg_Product_ValidatePrice
+CREATE OR ALTER TRIGGER dbo.trg_Product_ReportPriceChange
 ON dbo.Product
-AFTER INSERT, UPDATE
+AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF EXISTS (
-        SELECT 1
-        FROM inserted
-        WHERE Price <= 0
-    )
-    BEGIN
-        THROW 50010, N'قیمت محصول باید بیشتر از صفر باشد.', 1;
-    END
+    DECLARE @Changes INT = (
+        SELECT COUNT(*)
+        FROM inserted AS i
+        INNER JOIN deleted AS d ON d.ID = i.ID
+        WHERE i.Price <> d.Price
+    );
+
+    PRINT CONCAT(N'تعداد تغییر قیمت‌ها: ', @Changes);
 END;
 GO
 ```
@@ -1079,12 +1098,16 @@ GO
 ### تست Trigger
 
 ```sql
-INSERT INTO dbo.Product (Name, Price)
-VALUES (N'محصول تستی', -10);
+BEGIN TRANSACTION;
+
+UPDATE dbo.Product
+SET Price = Price + 1
+WHERE ID IN (1, 2);
+
+ROLLBACK TRANSACTION;
 ```
 
-**رفتار مورد انتظار:**  
-این دستور با خطا متوقف می‌شود، چون قیمت منفی مجاز نیست.
+در پیام‌ها باید تعداد **۲** را ببینید. یک دستور `UPDATE` تریگر را یک بار اجرا می‌کند و هر دو ردیف در `inserted` و `deleted` قابل مشاهده‌اند.
 
 ## Trigger از نوع INSTEAD OF
 
@@ -1123,23 +1146,38 @@ ENABLE TRIGGER dbo.trg_Product_InsteadOfInsert ON dbo.Product;
 
 ## DDL Trigger در سطح دیتابیس
 
+این مثال نام جدول جدید را از `EVENTDATA()` می‌خواند. تریگر و جدول آزمایشی هر دو با پایان تراکنش حذف می‌شوند.
+
 ```sql
-CREATE OR ALTER TRIGGER trg_BlockTableChanges
-ON DATABASE
-FOR CREATE_TABLE, DROP_TABLE, ALTER_TABLE
-AS
-BEGIN
-    RAISERROR(N'ایجاد، حذف یا تغییر جدول در این دیتابیس مجاز نیست.', 16, 1);
+SET XACT_ABORT ON;
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    EXEC sys.sp_executesql N'
+        CREATE TRIGGER trg_ReportRetailTableCreation
+        ON DATABASE
+        FOR CREATE_TABLE
+        AS
+        BEGIN
+            SET NOCOUNT ON;
+            DECLARE @Event XML = EVENTDATA();
+            DECLARE @TableName SYSNAME = @Event.value(''(/EVENT_INSTANCE/ObjectName)[1]'', ''sysname'');
+            PRINT CONCAT(N''جدول ساخته شد: '', @TableName);
+        END;
+    ';
+
+    CREATE TABLE dbo.RetailDDLProbe (ID INT PRIMARY KEY);
+
     ROLLBACK TRANSACTION;
-END;
-GO
+END TRY
+BEGIN CATCH
+    IF XACT_STATE() <> 0
+        ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
 ```
 
-**توضیح:**
-
-- این Trigger در سطح دیتابیس تعریف شده
-- اگر کسی بخواهد جدول بسازد، حذف کند یا تغییر دهد، خطا رخ می‌دهد
-- `ROLLBACK` تغییر را برمی‌گرداند
+در پیام‌ها نام `RetailDDLProbe` را می‌بینید. `sp_executesql` تعریف تریگر را در یک batch جداگانه و داخل همان تراکنش اجرا می‌کند.
 
 ## Cursor
 
@@ -1155,7 +1193,7 @@ DECLARE @ID INT;
 DECLARE @Salary DECIMAL(10,2);
 DECLARE @SumSalary DECIMAL(18,2) = 0;
 
-DECLARE emp_cur CURSOR FAST_FORWARD
+DECLARE emp_cur CURSOR LOCAL FAST_FORWARD
 FOR
 SELECT ID, Salary
 FROM dbo.Employee;
@@ -1193,7 +1231,7 @@ PRINT @SumSalary;
 همین کار را می‌توان بسیار ساده‌تر با یک کوئری set-based انجام داد:
 
 ```sql
-SELECT SUM(Salary) AS TotalSalary
+SELECT COALESCE(SUM(Salary), 0) AS TotalSalary
 FROM dbo.Employee;
 ```
 
@@ -1210,7 +1248,10 @@ Transaction برای این است که چند عملیات را به‌صورت
 
 ## مثال تراکنش
 
+این مثال تغییر قیمت و کاهش موجودی را با هم پیش‌نمایش می‌کند. در پایان، `ROLLBACK` هر دو تغییر را برمی‌گرداند. برای ثبت دائمی همین عملیات در یک برنامه، پس از موفقیت همهٔ دستورها از `COMMIT` استفاده می‌کنیم.
+
 ```sql
+SET XACT_ABORT ON;
 BEGIN TRY
     BEGIN TRANSACTION;
 
@@ -1218,30 +1259,31 @@ BEGIN TRY
     SET Price = Price + 5
     WHERE ID = 1;
 
+    IF @@ROWCOUNT <> 1
+        THROW 50020, N'محصول موردنظر پیدا نشد.', 1;
+
     UPDATE dbo.StoreProduct
     SET Amount = Amount - 10
-    WHERE S_ID = 1 AND P_ID = 1;
+    WHERE S_ID = 1 AND P_ID = 1 AND Amount >= 10;
 
-    IF @@ROWCOUNT = 0
-        THROW 50020, N'موجودی موردنظر برای به‌روزرسانی پیدا نشد.', 1;
+    IF @@ROWCOUNT <> 1
+        THROW 50021, N'موجودی برای این تغییر کافی نیست.', 1;
 
-    COMMIT TRANSACTION;
+    SELECT p.Price, sp.Amount
+    FROM dbo.Product AS p
+    INNER JOIN dbo.StoreProduct AS sp ON sp.P_ID = p.ID
+    WHERE p.ID = 1 AND sp.S_ID = 1;
+
+    ROLLBACK TRANSACTION;
 END TRY
 BEGIN CATCH
-    IF @@TRANCOUNT > 0
+    IF XACT_STATE() <> 0
         ROLLBACK TRANSACTION;
-
-    SELECT
-        ERROR_MESSAGE() AS ErrorMessage,
-        ERROR_LINE() AS ErrorLine;
+    THROW;
 END CATCH;
 ```
 
-### چرا این مثال مهم است؟
-
-در سیستم‌های واقعی، معمولاً چند دستور باید با هم موفق شوند.  
-مثلاً اگر قیمت محصول تغییر کرد ولی موجودی کم نشد، داده‌ها ناسازگار می‌شوند.  
-Transaction جلوی این مشکل را می‌گیرد.
+در دادهٔ اولیه، نتیجهٔ داخل تراکنش قیمت **۵۰٫۵۰** و موجودی **۱۴۰** را نشان می‌دهد. پس از بازگشت، مقادیر **۴۵٫۵۰** و **۱۵۰** دوباره قابل مشاهده‌اند.
 
 ## Index و کارایی
 
@@ -1258,8 +1300,8 @@ CREATE NONCLUSTERED INDEX IX_Store_C_ID
 ON dbo.Store (C_ID);
 GO
 
-CREATE NONCLUSTERED INDEX IX_StoreProduct_SID_PID
-ON dbo.StoreProduct (S_ID, P_ID);
+CREATE NONCLUSTERED INDEX IX_StoreProduct_Product
+ON dbo.StoreProduct (P_ID) INCLUDE (S_ID, Amount);
 GO
 
 CREATE NONCLUSTERED INDEX IX_Product_Name
@@ -1271,7 +1313,7 @@ GO
 
 - اگر زیاد روی `Employee.S_ID` JOIN می‌زنیم، ایندکس روی این ستون کمک می‌کند
 - اگر زیاد روی `Store.C_ID` فیلتر یا JOIN داریم، ایندکس مفید است
-- ایندکس ترکیبی روی `StoreProduct(S_ID, P_ID)` برای گزارش‌های موجودی مناسب است
+- قید `UNIQUE (S_ID, P_ID)` برای جست‌وجو از سمت شعبه یک ایندکس می‌سازد. ایندکس روی `P_ID` برای یافتن موجودی یک محصول در شعبه‌های مختلف کاربرد دارد.
 - جستجو روی نام محصول هم با ایندکس بهینه‌تر می‌شود
 
 ### نکته مهم
@@ -1339,11 +1381,15 @@ EXEC sp_helptext N'dbo.vwEmployee';
 ### @@ROWCOUNT
 
 ```sql
+BEGIN TRANSACTION;
+
 UPDATE dbo.Product
 SET Price = Price + 1
 WHERE ID = 1;
 
 SELECT @@ROWCOUNT AS AffectedRows;
+
+ROLLBACK TRANSACTION;
 ```
 
 **توضیح:**  
@@ -1443,3 +1489,5 @@ Trigger ممکن است روی چند ردیف به‌صورت هم‌زمان �
 - SQL Server Agent
 - Partitioning
 - Performance Tuning
+
+[ادامهٔ آموزش و تمرین‌ها](persian/advanced.md) · [نسخهٔ اولیهٔ جزوه](FirstVersion.md)
